@@ -233,7 +233,9 @@ while True:
   while revshell_running:
     time.sleep(0.1)
   exec_cmd = False
-  input = raw_input('>> ')
+  sys.stdout.write('>> ')
+  sys.stdout.flush()
+  input = sys.stdin.readline()
   if not input:
     continue
   cmd = input.split()
@@ -402,14 +404,15 @@ while True:
       else:
         output = output[0]
       ## display our results
-      print output
+      sys.stdout.write(output + "\n")
       if input == '_show_phpinfo':
         file = 'phpinfo.html'
         fp = open(file, 'w')
         fp.write(output)
         fp.close()
         sys.stdout.write("[*] Output saved to " + file + "\n")
-    except Exception, e:
+    except (Exception, e):
       sys.stdout.write("[!] Unable to make request to target\n")
-      print ("[!] %s" % e)
+      sys.stdout.write("[!] %s" % e)
+      sys.stdout.flush()
 
