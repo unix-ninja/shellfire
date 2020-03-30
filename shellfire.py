@@ -18,7 +18,7 @@ import time
 ############################################################
 ## Configs
 
-version = "0.4"
+version = "0.5"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
