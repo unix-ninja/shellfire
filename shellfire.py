@@ -256,7 +256,7 @@ while True:
       continue
     cookies = json.loads(input[len(cmd[0])+1:])
   elif cmd[0] == ".find":
-    if len(cmd) is not 2:
+    if len(cmd) != 2:
       sys.stdout.write("[!] Invalid parameters\n")
       continue
     exec_cmd = True
@@ -329,7 +329,7 @@ while True:
       sys.stdout.write("[!] Invalid parameters\n")
       sys.stdout.write("    .method <method>\n")
       continue
-    if len(cmd) is 2:
+    if len(cmd) == 2:
       if cmd[1] == "post":
         method = "post"
       else:
@@ -349,7 +349,7 @@ while True:
       headers['Referer'] = input[len(cmd[0])+1:]
     sys.stdout.write("[*] Referer set: %s\n" % headers['Referer'])
   elif cmd[0] == ".shell":
-    if len(cmd) is not 3:
+    if len(cmd) != 3:
       sys.stdout.write("[!] Invalid parameters\n")
       sys.stdout.write("    .shell <ip_address> <port>\n")
       continue
