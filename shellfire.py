@@ -16,6 +16,8 @@ import sys
 import threading
 import time
 
+from plugin_collection import PluginCollection
+
 ############################################################
 ## Version Check
 
@@ -43,12 +45,14 @@ class cfg:
   auth_pass = None
   payload = ""
   payload_type = "PHP"
+  encode_chain = []
   encode = None
   marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
   http_port = 8888
   http_running = False
   revshell_running = False
 
+plugins = PluginCollection('plugins')
 userinput = None
 
 ############################################################
@@ -246,20 +250,37 @@ def cmd_cookies(cmd):
 def cmd_encode(cmd):
   if len(cmd) == 1:
     sys.stdout.write("[*] encoding: %s\n" % (cfg.encode))
+    sys.stdout.write("[*] encoding: %s\n" % (cfg.encode_chain))
     return False
-  elif len(cmd) != 2:
-    sys.stderr.write("[!] Invalid parameters\n")
-    return True
-  if cmd[1] == "base64":
-    cfg.encode = cmd[1]
-    sys.stdout.write("[*] encoding set to base64\n")
-    return False
-  elif cmd[1] == "none":
-    cfg.encode = None
-    sys.stdout.write("[*] encoding removed\n")
-    return False
-  else:
-    sys.stderr.write("[!] Invalid parameters\n")
+  ##  let's remove ".encode" from our cmd
+  cmd.pop(0)
+  ## reset our chain
+  cfg.encode_chain = []
+  ## try to load our plugins
+  try:
+    for c in cmd:
+      if c != "|":
+        if c in plugins.plugins:
+          cfg.encode_chain.append(c)
+        else:
+          cfg.encode_chain = []
+          sys.stdout.write("[!] Invalid plugin %s\n" % (c))
+          return False
+  except:
+    pass
+  #elif len(cmd) != 2:
+  #  sys.stderr.write("[!] Invalid parameters\n")
+  #  return True
+  #if cmd[1] == "base64":
+  #  cfg.encode = cmd[1]
+  #  sys.stdout.write("[*] encoding set to base64\n")
+  #  return False
+  #elif cmd[1] == "none":
+  #  cfg.encode = None
+  #  sys.stdout.write("[*] encoding removed\n")
+  #  return False
+  #else:
+  #  sys.stderr.write("[!] Invalid parameters\n")
   return False
 
 def cmd_find(cmd):
@@ -459,6 +480,11 @@ if os.path.isfile(cfg.history_file):
 ## set initial payload for PHP
 payload_php()
 
+
+#print(plugins.apply_all(5))
+#print(plugins.plugins['base64'].run(5))
+#print(plugins.apply('base64', 5))
+
 ## main loop
 while True:
   while cfg.revshell_running:
@@ -513,7 +539,8 @@ while True:
   if exec_cmd:
     ## make sure our encoding is correct
     if cfg.encode == "base64":
-      cmd = base64.b64encode(userinput.encode()).decode()
+      #cmd = base64.b64encode(userinput.encode()).decode()
+      cmd = plugins.apply('base64', userinput)
     else:
       cmd = re.sub('&', '%26', userinput)
       cmd = cmd.replace("\\", "\\\\")
@@ -527,7 +554,7 @@ while True:
         else:
           query = re.sub('cmd=', 'cmd=' + cmd, cfg.url)
       else:
-        query = cfg.url
+        query = cfg.url + cmd.strip()
     ## log debug info
     if args.debug:
       sys.stdout.write("[D] " + query + "\n")
