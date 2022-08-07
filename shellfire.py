@@ -259,7 +259,7 @@ def cmd_encode(cmd):
   ## try to load our plugins
   try:
     for c in cmd:
-      if c != "|":
+      if c != "|" and c != "''" and c != '""':
         if c in plugins.plugins:
           cfg.encode_chain.append(c)
         else:
