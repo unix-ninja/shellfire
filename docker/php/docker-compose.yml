@@ -1,0 +1,9 @@
+version: '3.1'
+
+services:
+  php:
+    build: .
+    ports:
+      - 8089:80
+    volumes:
+      - ./src:/var/www/html/
