@@ -173,6 +173,7 @@ Available commands:
   .phpinfo
   .post
   .referer
+  .headers
   .shell
   .url
   .useragent
