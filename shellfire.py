@@ -189,8 +189,7 @@ def http_server(port):
         conn, addr = sock.accept()
       request = conn.recv(1024)
 
-      ## craft our payload
-      http_response = "HTTP/1.1 200 OK\n\n" + payload + "\n"
+      http_response = "HTTP/1.1 200 OK\n\n" + cfg.payload + "\n"
 
       ## send payload to the client
       conn.send(bytes(http_response, 'utf-8'))
@@ -360,7 +359,7 @@ def cmd_http(cmd):
     else:
       sys.stderr.write("[!] Unrecognized payload type\n")
       return
-    sys.stdout.write("[*] HTTP payload set: %s\n" % payload_type)
+    sys.stdout.write("[*] HTTP payload set: %s\n" % cfg.payload_type)
   return
 
 def cmd_marker(cmd):
@@ -567,7 +566,7 @@ while True:
       sys.stdout.write("[D] " + query + "\n")
     try:
       if cfg.method == "post":
-        r = requests.post(query, data=post, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+        r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
       else:
         r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
       ## sanitize the output. we only want to see our commands if possible
