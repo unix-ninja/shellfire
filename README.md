@@ -14,8 +14,8 @@ useful as I have, so I decided to open source my tool.
 
 - [X] Persistent named configuration for multiple targets (and sharing!)  
 - [X] Plugin system  
-- [X] PHP paylod  
-- [X] ASP paylod  
+- [X] PHP payload  
+- [X] ASP payload  
 - [X] Dockerized vulnerable apps for testing  
 
 
