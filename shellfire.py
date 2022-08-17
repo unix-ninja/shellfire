@@ -37,7 +37,14 @@ class cfg:
   headers = {
     'User-Agent': '',
     'Referer': ''
-    }
+  }
+  
+  """The default header set for outgoing requests.
+  """
+  default_headers = {
+    'User-Agent': ''
+  }
+
   method = "get"
 
   auth = None
@@ -409,6 +416,48 @@ def cmd_referer(cmd):
   sys.stdout.write("[*] Referer set: %s\n" % cfg.headers['Referer'])
   return
 
+def cmd_headers(cmd):
+  """List or configure the HTTP request headers
+    .headers
+    .headers default
+    .headers {"X-EXAMPLE-HEADER": "SomeValueHere" }
+  Args:
+      cmd (Str): "default" to reset the headers, otherwise a JSON string of the preferred header set
+  """
+  if len(cmd) < 1:
+    sys.stderr.write("[!] Invalid parameters\n")
+    sys.stderr.write("    .headers {\"X-EXAMPLE\": \"some_value_here\"}\n")
+    sys.stderr.write("    .headers default\n")
+    return
+  elif len(cmd) == 1:
+    sys.stdout.write("[*] Request headers are: \n")
+    sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+    return
+  try:
+    cmd.pop(0)
+    if "".join(cmd).strip() == "default":
+      # Apply the default headers here
+      cfg.headers = cfg.default_headers
+      sys.stdout.write("[*] Set request headers back to default...\n")
+    else:
+      # Convert deserialize the json
+      tmp_headers = json.loads(" ".join(cmd))
+      
+      # Upsert into cfg.headers
+      for header in tmp_headers:
+        if header not in cfg.headers:
+          cfg.headers[header] = tmp_headers[header]
+        else:
+          if cfg.headers[header] != tmp_headers[header]:
+            cfg.headers[header] = tmp_headers[header]
+      
+      # Sanity check
+      sys.stdout.write("[*] Request headers are now: \n")
+      sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+  except Exception as e:
+    sys.stderr.write("[!] %s\n" % e)
+
+
 def cmd_shell(cmd):
   ## initiate a reverse shell via rce
   if len(cmd) != 3:
@@ -529,6 +578,8 @@ while True:
     cmd_post(cmd)
   elif cmd[0] == ".referer":
     cmd_referer(cmd)
+  elif cmd[0] == ".headers":
+    cmd_headers(cmd)
   elif cmd[0] == ".shell":
     exec_cmd = cmd_shell(cmd)
   elif cmd[0] == ".url":
