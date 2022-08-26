@@ -1,6 +1,7 @@
 import os
 import json
 from io import TextIOWrapper
+from plugin_collection import PluginCollection
 from tokenize import Number
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -60,3 +61,14 @@ class Configs():
   def load(self, json_cfg):
     self.__dict__.update(json_cfg)
     return
+
+## instantiate our config class
+cfg = Configs()
+
+## store our ephemeral state here
+class state():
+  http_running = False
+  revshell_running = False
+  #plugins = PluginCollection('plugins')
+  userinput = None
+  exec_cmd = True
