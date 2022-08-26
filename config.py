@@ -22,7 +22,6 @@ class Configs():
   payload: str
   payload_type: str
   encode_chain: List[any]
-  encode: bool # This isn't be used, is it?
   marker: str
   http_port: Number
 
@@ -69,6 +68,5 @@ cfg = Configs()
 class state():
   http_running = False
   revshell_running = False
-  #plugins = PluginCollection('plugins')
   userinput = None
   exec_cmd = True
