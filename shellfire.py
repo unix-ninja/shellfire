@@ -128,7 +128,6 @@ def main():
           command_list[cmd[0][1:]]['func'](cmd)
         except Exception as e:
           sys.stdout.write("[!] %s\n" % (repr(e)))
-          pass
 
     ## execute our command to the remote target
     if state.exec_cmd:
