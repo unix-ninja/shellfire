@@ -31,7 +31,7 @@ launch it directly). For example:
 
 ```
 $ python shellfire.py
-[*] ShellFire v0.1
+[*] ShellFire v0.8
 [*] Type '.help' to see available commands
 >>
 ```
@@ -40,7 +40,9 @@ You can type `.help` at any time for a list of available commands, or append
 the command you want to know more information about to help for specific 
 details. For example `.help http`.
 
-To start exploitation, you need to specify at least the URL of your target. 
+Let's explore how to attack a basic RFI vulnerability!
+
+To start exploitation, you need to specify at least the URL parameter of your target. 
 Something like the following should work:
 
 ```
@@ -48,10 +50,10 @@ Something like the following should work:
 ```
 
 At this point, you should have enough to exploit easy vulnerabilities. You can 
-simply start executing commands and they will be sent over to the target.
+start executing commands and they will be sent over to the target.
 
-For more complex vulnerabilities, you may need to specify additional options. 
-To exemplify, let's assume you needed to send a cookie with a session ID in 
+More complex vulnerabilities may require specifying additional options. 
+For example, let's assume you needed to send a cookie with a session ID in 
 order to exploit your target. You may want to add something like this:
 
 ```
@@ -70,5 +72,4 @@ Happy hacking!
 
 ## Testing  
 
-The [docker](/docker) directory contains a small collection of vulnerable 
-applications for testing shellfire's functionality.
+Testing is currently being done against the [dvwa docker image](https://hub.docker.com/r/vulnerables/web-dvwa/).
