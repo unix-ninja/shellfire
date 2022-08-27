@@ -343,6 +343,10 @@ def cmd_phpinfo(cmd):
   state.exec_cmd = True
   return
 
+def cmd_plugins(cmd):
+  sys.stdout.write("[*] Available plugins: %s\n" % (' '.join(plugins.plugins)))
+  return
+
 def cmd_post(cmd):
   ## configure POST data to send
   if len(cmd) < 2:
@@ -509,7 +513,14 @@ command_list = {
     "func": cmd_phpinfo,
     "description": "",
     "help_text": [
-      ".phpinfo - executes the '_show_phpinfo' command via the PHP payload."
+      ".phpinfo - executes the '_show_phpinfo' command via the PHP payload.\n"
+    ],
+  },
+  "plugins": {
+    "func": cmd_plugins,
+    "description": "",
+    "help_text": [
+      ".plugins - list all available plugins.\n"
     ],
   },
   "post": {

@@ -173,9 +173,9 @@ def main():
           fp = open(file, 'w')
           fp.write(output)
           fp.close()
-          sys.stdout.write("[*] Output saved to " + file + "\n")
+          sys.stdout.write("[*] Output saved to '" + file + "'.\n")
       except Exception as e:
-        sys.stderr.write("[!] Unable to make request to target\n")
+        sys.stderr.write("[!] Unable to make request to target.\n")
         sys.stderr.write("[!] %s\n" % e)
         sys.stdout.flush()
 
