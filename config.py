@@ -8,23 +8,23 @@ from urllib.parse import urlparse
 from urllib.parse import urlparse
 
 class Configs():
-  version: str
-  url: str
-  history_file: str
-  post_data: object
-  cookies: object
-  headers: object
-  default_headers: object
-  method: str
   auth: str
   auth_user: str
   auth_pass: str
-  payload: str
-  payload_type: str
+  cookies: object
+  default_headers: object
   encode_chain: List[any]
+  headers: object
+  history_file: str
+  http_port: Number
   marker: str
   marker_idx: List[int]
-  http_port: Number
+  method: str
+  payload: str
+  payload_type: str
+  post_data: object
+  url: str
+  version: str
 
   def __init__(self):
     self.version = "0.7.b"
