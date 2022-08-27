@@ -1,7 +1,7 @@
 import os
 import json
 from io import TextIOWrapper
-from plugin_collection import PluginCollection
+from plugin_collection import plugins
 from tokenize import Number
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -23,6 +23,7 @@ class Configs():
   payload_type: str
   encode_chain: List[any]
   marker: str
+  marker_idx: List[int]
   http_port: Number
 
   def __init__(self):

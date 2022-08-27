@@ -9,15 +9,16 @@ import os
 import readline
 import requests
 import select
+import shlex
 import socket
 import sys
 import threading
 import time
 
 from config import cfg, state
-from commands import command_list
+from commands import command_list, cmd_config
 from payloads import get_aspnet_payload, get_php_payload
-from plugin_collection import PluginCollection
+from plugin_collection import plugins
 
 ############################################################
 ## Version Check
@@ -25,11 +26,6 @@ from plugin_collection import PluginCollection
 if (sys.version_info < (3, 0)):
   sys.stderr.write("[!] Error! Must execute this script with Python3.");
   sys.exit(2)
-
-############################################################
-## Ephemeral states
-
-plugins = PluginCollection('plugins')
 
 ############################################################
 ## Payloads
@@ -119,7 +115,7 @@ def main():
     if not state.userinput:
       continue
     ## parse our input
-    cmd = state.userinput.split()
+    cmd = shlex.split(state.userinput)
 
     if cmd[0][0] == '.':
       if cmd[0][1:] in command_list.keys():
@@ -161,14 +157,18 @@ def main():
         else:
           r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
         ## sanitize the output. we only want to see our commands if possible
-        output = r.text.split(cfg.marker)
-        if len(output) > 1:
-          output = output[1]
+        buffer = r.text.split(cfg.marker)
+        output = ""
+        if len(buffer) > 1:
+          for idx in cfg.marker_idx:
+            output = output + buffer[idx] + "\n"
         else:
-          output = output[0]
+          output = buffer[0]
+        ## strip trailing newlines
+        output = output.rstrip()
         ## display our results
         sys.stdout.write(output + "\n")
-        if userinput == '_show_phpinfo':
+        if state.userinput == '_show_phpinfo':
           file = 'phpinfo.html'
           fp = open(file, 'w')
           fp.write(output)

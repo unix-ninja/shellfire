@@ -1,6 +1,7 @@
 import inspect
 import os
 import pkgutil
+import sys
 
 class Plugin(object):
   """Base class that each plugin must inherit from. within this class
@@ -39,10 +40,17 @@ class PluginCollection(object):
     """
     self.plugins = {}
     self.seen_paths = []
-    if self.debug:
-      print()
-      print(f'Looking for plugins under package {self.plugin_package}')
-    self.walk_package(self.plugin_package)
+    if type(self.plugin_package) == list:
+      for pkg in self.plugin_package:
+        if self.debug:
+          print()
+          print(f'Looking for plugins under package {pkg}')
+        self.walk_package(pkg)
+    else:
+      if self.debug:
+        print()
+        print(f'Looking for plugins under package {self.plugin_package}')
+      self.walk_package(self.plugin_package)
 
   def apply(self,name, argument):
     """Apply a plugin on the argument supplied to this function
@@ -80,15 +88,15 @@ class PluginCollection(object):
         plugin_module = __import__(pluginname, fromlist=['n/a'])
         clsmembers = inspect.getmembers(plugin_module, inspect.isclass)
         for (_, c) in clsmembers:
-          # Only add classes that are a sub class of Plugin, but NOT Plugin itself
+          ## Only add classes that are a sub class of Plugin, but NOT Plugin itself
           if issubclass(c, Plugin) & (c is not Plugin):
             if self.debug:
               print(f'  Found plugin: {c.__name__.lower()}')
-            # make sure the key is the lowercase version  of the class name
+            ## make sure the key is the lowercase version  of the class name
             self.plugins[c.__name__.lower()] = c()
 
-    # Now that we have looked at all the modules in the current package, start looking
-    # recursively for additional modules in sub packages
+    ## Now that we have looked at all the modules in the current package, start looking
+    ## recursively for additional modules in sub packages
     all_current_paths = []
     if isinstance(imported_package.__path__, str):
       all_current_paths.append(imported_package.__path__)
@@ -99,9 +107,15 @@ class PluginCollection(object):
       if pkg_path not in self.seen_paths:
         self.seen_paths.append(pkg_path)
 
-        # Get all sub directory of the current package path directory
+        ## Get all sub directory of the current package path directory
         child_pkgs = [p for p in os.listdir(pkg_path) if os.path.isdir(os.path.join(pkg_path, p))]
 
-        # For each sub directory, apply the walk_package method recursively
+        ## For each sub directory, apply the walk_package method recursively
         for child_pkg in child_pkgs:
           self.walk_package(package + '.' + child_pkg)
+
+## set the search path for custom plugins
+sys.path.append(os.path.expanduser("~/.config/shellfire"))
+
+## initialize our  available plugins
+plugins = PluginCollection(['default_plugins', 'plugins'], debug=False)
