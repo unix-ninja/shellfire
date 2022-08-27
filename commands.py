@@ -148,9 +148,6 @@ def cmd_encode(cmd):
   if len(cmd) == 1:
     sys.stdout.write("[*] encoding: %s\n" % (' | '.join(cfg.encode_chain)))
     return
-  if len(cmd) == 2 and cmd[1] == "ls":
-    sys.stdout.write("[*] Available encodings: %s\n" % (' '.join(plugins.plugins)))
-    return
   ## Set our encoding plugins!
   ## let's remove ".encode" from our cmd
   cmd.pop(0)
@@ -434,7 +431,6 @@ command_list = {
     "description": "",
     "help_text": [
       ".encode          - show current encoding used before sending commands.\n",
-      ".encode ls       - list available plugins for encoding.\n",
       ".encode <string> - encode commands with plugin <string> before sending.\n",
       "                   you may pass multiple plugins separated with spaces or pipes.\n",
     ],
