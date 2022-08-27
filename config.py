@@ -67,6 +67,7 @@ cfg = Configs()
 
 ## store our ephemeral state here
 class state():
+  args = None
   http_running = False
   revshell_running = False
   userinput = None
