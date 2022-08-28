@@ -4,51 +4,48 @@
 # Aug 2016
 
 import argparse
-import json
 import os
 import readline
 import requests
-import select
 import shlex
-import socket
 import sys
-import threading
 import time
 
 from config import cfg, state
-from commands import command_list, cmd_config, send_payload
-from payloads import get_aspnet_payload, get_php_payload
-from plugin_collection import plugins
+from commands import command_list, cmd_config, send_payload, payload_php, payload_aspnet
+
 
 ############################################################
 ## Version Check
 
 if (sys.version_info < (3, 0)):
-  sys.stderr.write("[!] Error! Must execute this script with Python3.");
+  sys.stderr.write("[!] Error! Must execute this script with Python3.")
   sys.exit(2)
-
-############################################################
-## Payloads
-
-def payload_aspnet():
-  cfg.payload = get_aspnet_payload(cfg.marker)
-  cfg.payload_type = "ASP.NET"
-
-def payload_php():
-  cfg.payload = get_php_payload(cfg.marker)
-  cfg.payload_type = "PHP"
 
 ############################################################
 ## Parse options
 
-parser = argparse.ArgumentParser(description='Exploitation shell for LFI/RFI and command injection')
-parser.add_argument('-c', dest='config', action='store', nargs='?', default=None, const='default', help='load a named config on startup.')
-parser.add_argument('-d', dest='debug', action='store_true', help='enable debugging (show queries during execution)')
-parser.add_argument('--generate', dest='payload', help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
+parser = argparse.ArgumentParser(
+    description='Exploitation shell for LFI/RFI and command injection')
+parser.add_argument('-c',
+                    dest='config',
+                    action='store',
+                    nargs='?',
+                    default=None,
+                    const='default',
+                    help='load a named config on startup.')
+parser.add_argument('-d',
+                    dest='debug',
+                    action='store_true',
+                    help='enable debugging (show queries during execution)')
+parser.add_argument('--generate',
+                    dest='payload',
+                    help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
 state.args = parser.parse_args()
 
 ############################################################
 ## Main App
+
 
 def main():
   ## if we are generating a payload to stdout, do it now, then bail
@@ -66,18 +63,18 @@ def main():
     sys.exit(1)
 
   ## show our banner
-  sys.stdout.write(""" (                                            
-)\ )    )       (   (   (                    
-(()/( ( /(    (  )\  )\  )\ )  (   (      (   
-/(_)))\())  ))\((_)((_)(()/(  )\  )(    ))\  
-(_)) ((_)\  /((_)_   _   /(_))((_)(()\  /((_) 
-/ __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))   
-\__ \| ' \ / -_)| | | |  |  _| | || '_|/ -_)  
-|___/|_||_|\___||_| |_|  |_|   |_||_|  \___|
+  sys.stdout.write(""" (
+)\\ )    )       (   (   (
+(()/( ( /(    (  )\\  )\\  )\\ )  (   (      (
+/(_)))\\())  ))\\((_)((_)(()/(  )\\  )(    ))\\
+(_)) ((_)\\  /((_)_   _   /(_))((_)(()\\  /((_)
+/ __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))
+\\__ \\| ' \\ / -_)| | | |  |  _| | || '_|/ -_)
+|___/|_||_|\\___||_| |_|  |_|   |_||_|  \\___|
 """)
   sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
   sys.stdout.write("[*] Type '.help' to see available commands\n")
-  if state.args.debug == True:
+  if state.args.debug is True:
     sys.stdout.write("[*] Debug mode enabled.\n")
 
   requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
@@ -90,7 +87,7 @@ def main():
   if os.path.isfile(cfg.history_file):
     try:
       readline.read_history_file(cfg.history_file)
-    except:
+    except Exception:
       pass
 
   ## set initial payload for PHP
@@ -101,7 +98,7 @@ def main():
     while state.revshell_running:
       try:
         time.sleep(0.1)
-      except:
+      except Exception:
         state.revshell_running = False
     ## reset command execution state each loop
     state.exec_cmd = True
@@ -126,6 +123,7 @@ def main():
           sys.stdout.write("[!] %s\n" % (repr(e)))
 
     send_payload()
+
 
 ## Main entrypoint - let's not pollute the global scope here.
 if __name__ == "__main__":

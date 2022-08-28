@@ -2,3 +2,6 @@
 .env
 __pycache__
 **/*.pyc
+bin
+include
+lib

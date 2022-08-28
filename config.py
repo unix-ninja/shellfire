@@ -1,11 +1,8 @@
 import os
 import json
-from io import TextIOWrapper
-from plugin_collection import plugins
 from tokenize import Number
-from typing import List, Optional
-from urllib.parse import urlparse
-from urllib.parse import urlparse
+from typing import List
+
 
 class Configs():
   auth: str
@@ -27,24 +24,25 @@ class Configs():
   version: str
 
   def __init__(self):
-    self.version = "0.7.b"
+    self.version = "0.8"
     self.url = "http://www.example.com?"
-    self.history_file = os.path.abspath(os.path.expanduser("~/.shellfire_history"))
+    self.history_file = os.path.abspath(
+        os.path.expanduser("~/.shellfire_history"))
     self.post_data = {}
     self.cookies = {}
     self.headers = {
-      'User-Agent': '',
-      'Referer': ''
+        'User-Agent': '',
+        'Referer': ''
     }
-    
+
     """The default header set for outgoing requests.
     """
     self.default_headers = {
-      'User-Agent': ''
+        'User-Agent': ''
     }
-    
+
     self.method = "get"
-    
+
     self.auth = None
     self.auth_user = None
     self.auth_pass = None
@@ -54,7 +52,7 @@ class Configs():
     self.encode = None
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
     self.http_port = 8888
-  
+
   def dump(self):
     return json.dumps(self.__dict__)
 
@@ -62,8 +60,10 @@ class Configs():
     self.__dict__.update(json_cfg)
     return
 
+
 ## instantiate our config class
 cfg = Configs()
+
 
 ## store our ephemeral state here
 class state():

