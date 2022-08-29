@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(name='shellfire',
     version='0.8.1',
     description=(
-        'shellfire is an exploitation shell focusing on exploiting command'
+        'shellfire is an exploitation shell focusing on exploiting command '
         'injection vulnerabilities, eg., LFI, RFI, SSTI, etc.'
     ),
     url='https://github.com/unix-ninja/shellfire',
