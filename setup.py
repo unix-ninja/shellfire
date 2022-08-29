@@ -17,5 +17,8 @@ setup(name='shellfire',
         "console_scripts": [
              "shellfire=shellfire:cli"
         ]
-    }
+    },
+    install_requires=[
+        'requests'
+        ]
     )
