@@ -7,9 +7,9 @@ import socket
 import sys
 import threading
 import time
-from config import cfg, state
-from plugin_collection import plugins
-from payloads import get_aspnet_payload, get_php_payload
+from shellfire.config import cfg, state
+from shellfire.plugin_collection import plugins
+from shellfire.payloads import get_aspnet_payload, get_php_payload
 
 
 ############################################################

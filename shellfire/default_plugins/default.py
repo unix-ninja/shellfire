@@ -1,7 +1,7 @@
 import base64 as b64
 import urllib.parse
 
-from plugin_collection import Plugin
+from shellfire.plugin_collection import Plugin
 
 class Base64(Plugin):
     """Base64 encode your input

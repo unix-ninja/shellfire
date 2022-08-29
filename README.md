@@ -15,16 +15,18 @@ useful as I have, so I decided to open source my tool.
 
 ## Installation  
 
-Run `pip install -r requirements.txt` to install the application dependencies.  
+You can use the standard Python setuptools to install this package:
 
+```
+$ python setup.py install
+```
 
 ## A few useful hints
 
-To use shellfire, just fire it up via python (or add execute permissions and 
-launch it directly). For example:
+After installing, you can just call 'shellfire' from your terminal.
 
 ```
-$ python shellfire.py
+$ shellfire
 [*] ShellFire v0.8
 [*] Type '.help' to see available commands
 >>

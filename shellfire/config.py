@@ -24,7 +24,7 @@ class Configs():
   version: str
 
   def __init__(self):
-    self.version = "0.8"
+    self.version = "0.8.1"
     self.url = "http://www.example.com?"
     self.history_file = os.path.abspath(
         os.path.expanduser("~/.shellfire_history"))
