@@ -123,4 +123,4 @@ class PluginCollection(object):
 sys.path.append(os.path.expanduser("~/.config/shellfire"))
 
 ## initialize our  available plugins
-plugins = PluginCollection(['default_plugins', 'plugins'], debug=False)
+plugins = PluginCollection(['shellfire.default_plugins', 'plugins'], debug=False)

@@ -11,8 +11,8 @@ import shlex
 import sys
 import time
 
-from config import cfg, state
-from commands import command_list, cmd_config, send_payload, payload_php, payload_aspnet
+from shellfire.config import cfg, state
+from shellfire.commands import command_list, cmd_config, send_payload, payload_php, payload_aspnet
 
 
 ############################################################
@@ -47,7 +47,7 @@ state.args = parser.parse_args()
 ## Main App
 
 
-def main():
+def cli():
   ## if we are generating a payload to stdout, do it now, then bail
   if state.args.payload:
     state.args.payload = state.args.payload.lower()
@@ -127,4 +127,4 @@ def main():
 
 ## Main entrypoint - let's not pollute the global scope here.
 if __name__ == "__main__":
-  main()
+  cli()
