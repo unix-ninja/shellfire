@@ -82,7 +82,12 @@ class PluginCollection(object):
   def walk_package(self, package):
     """Recursively walk the supplied package to retrieve all plugins
     """
-    imported_package = __import__(package, fromlist=['n/a'])
+    try:
+      imported_package = __import__(package, fromlist=['n/a'])
+    except Exception as e:
+      if package != "plugins":
+        print(f"Error: {e}")
+      return
 
     for _, pluginname, ispkg in pkgutil.iter_modules(
         imported_package.__path__,
@@ -117,6 +122,7 @@ class PluginCollection(object):
         ## For each sub directory, apply the walk_package method recursively
         for child_pkg in child_pkgs:
           self.walk_package(package + '.' + child_pkg)
+    return
 
 
 ## set the search path for custom plugins

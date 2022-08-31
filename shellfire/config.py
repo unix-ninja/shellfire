@@ -1,5 +1,6 @@
 import os
 import json
+import pkg_resources
 from tokenize import Number
 from typing import List
 
@@ -24,7 +25,7 @@ class Configs():
   version: str
 
   def __init__(self):
-    self.version = "0.8.1"
+    self.version = pkg_resources.require("shellfire")[0].version
     self.url = "http://www.example.com?"
     self.history_file = os.path.abspath(
         os.path.expanduser("~/.shellfire_history"))
