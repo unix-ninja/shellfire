@@ -1,7 +1,10 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(name='shellfire',
-    version='0.8.1',
+    version='0.8.2',
     description=(
         'shellfire is an exploitation shell focusing on exploiting command '
         'injection vulnerabilities, eg., LFI, RFI, SSTI, etc.'
@@ -10,7 +13,9 @@ setup(name='shellfire',
     author='unix-ninja',
     author_email='chris@unix-ninja.com',
     license='BSD',
-    python_requires='>=3.9.0',
+    python_requires='>=3.8.0',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=find_packages(),
     include_package_data=True,
     entry_points={
