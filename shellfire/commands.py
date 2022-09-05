@@ -202,6 +202,32 @@ def cmd_exit(cmd):
   sys.exit(0)
 
 
+def cmd_files(cmd):
+  ## set files to send to remote target
+  if len(cmd) == 1:
+    sys.stdout.write("[*] Files: %s\n" % (cfg.files))
+    return
+  if cmd[1] == "":
+    cfg.files = {}
+    sys.stdout.write("[*] Files cleared.\n")
+    return
+  if len(cmd) != 3:
+    sys.stdout.write("[!] Invalid parameters!\n")
+    return
+  ## label our vars
+  key = cmd[1]
+  name = cmd[2]
+  ## parse our command
+  cfg.files = {'key': key}
+  if name[0] == "@":
+    cfg.files['file'] = name[1:]
+    sys.stdout.write("[*] File set.\n")
+  else:
+    cfg.files['plugin'] = name
+    sys.stdout.write("[*] Plugin set.\n")
+  return
+
+
 def cmd_find(cmd):
   ## run "find" on remote target
   if len(cmd) != 2:
@@ -361,6 +387,8 @@ def cmd_method(cmd):
   if len(cmd) == 2:
     if cmd[1] == "post":
       cfg.method = "post"
+    elif cmd[1] == "form":
+      cfg.method = "form"
     else:
       cfg.method = "get"
   sys.stdout.write("[*] HTTP method set: %s\n" % cfg.method.upper())
@@ -493,6 +521,34 @@ def send_payload():
             cookies=cookie_data,
             headers=header_data,
             auth=cfg.auth)
+      elif cfg.method == "form":
+        files = {'': (None, '')}
+        ## do we have files to upload?
+        if 'key' in cfg.files.keys():
+          ## check for raw files first
+          if 'file' in cfg.files.keys():
+            try:
+              files = {cfg.files['key']: open(cfg.files['file'], 'rb')}
+            except Exception as e:
+              sys.stdout.write("[!] Error opening file for multpart upload: %s\n" % (e))
+          ## check for plugins next
+          elif 'plugin' in cfg.files.keys():
+            try:
+              if cfg.files['plugin'] in plugins.plugins:
+                files = {cfg.files['key']: plugins.plugins[cfg.files['plugin']].run(cmd)}
+              else:
+                sys.stdout.write("[!] Invalid plugin '%s'\n" % (cmd[1]))
+            except Exception as e:
+              sys.stdout.write("[!] Error: %s\n" % (e))
+        ## post our form data
+        r = requests.post(
+            query,
+            data=post_data,
+            files=files,
+            verify=False,
+            cookies=cookie_data,
+            headers=header_data,
+            auth=cfg.auth)
       else:
         r = requests.get(
             query,
@@ -523,7 +579,7 @@ def send_payload():
         sys.stdout.write("[*] Output saved to '" + file + "'.\n")
     except Exception as e:
       sys.stderr.write("[!] Unable to make request to target.\n")
-      sys.stderr.write("[!]  * %s\n" % e)
+      sys.stderr.write("[!]   %s\n" % e)
       sys.stdout.flush()
   return
 
@@ -572,6 +628,18 @@ command_list = {
     "description": "",
     "help_text": [
       ".exit - exits this program.\n"
+    ],
+  },
+  "files": {
+    "func": cmd_files,
+    "description": "",
+    "help_text": [
+      ".files - show files to be sent to target.\n",
+      ".files \"\" - unset files.\n",
+      ".files <field> @<file> - send contents of file as <field>.\n",
+      ".files <field> <plugin> - send return value of plugin as <field>.\n",
+      "                          the plugin should return a tuple of values\n",
+      "                          for the filename and contents.\n",
     ],
   },
   "find": {
@@ -637,6 +705,7 @@ command_list = {
       ".method      - show current HTTP method.\n",
       ".method get  - set HTTP method to GET.\n",
       ".method post - set HTTP method to POST.\n",
+      ".method form - set HTTP method to POST using multipart form data.\n",
     ],
   },
   "phpinfo": {

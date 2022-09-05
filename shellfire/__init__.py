@@ -26,7 +26,7 @@ if (sys.version_info < (3, 0)):
 ## Parse options
 
 parser = argparse.ArgumentParser(
-    description='Exploitation shell for LFI/RFI and command injection')
+    description='An exploitation shell for command injection vulnerabilities.')
 parser.add_argument('-c',
                     dest='config',
                     action='store',

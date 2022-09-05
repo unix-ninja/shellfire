@@ -12,6 +12,7 @@ class Configs():
   cookies: object
   default_headers: object
   encode_chain: List[any]
+  files: dict
   headers: object
   history_file: str
   http_port: Number
@@ -51,6 +52,7 @@ class Configs():
     self.payload_type = "PHP"
     self.encode_chain = []
     self.encode = None
+    self.files = {}
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
     self.http_port = 8888
 
