@@ -41,6 +41,10 @@ parser.add_argument('-d',
 parser.add_argument('--generate',
                     dest='payload',
                     help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
+parser.add_argument('--version',
+                    dest='version',
+                    action='store_true',
+                    help='display version and exit.')
 state.args = parser.parse_args()
 
 ############################################################
@@ -48,6 +52,10 @@ state.args = parser.parse_args()
 
 
 def cli():
+  ## should we dump version?
+  if state.args.version:
+    sys.stderr.write("Shellfire v%s\n" % (cfg.version))
+    sys.exit(1)
   ## if we are generating a payload to stdout, do it now, then bail
   if state.args.payload:
     state.args.payload = state.args.payload.lower()
