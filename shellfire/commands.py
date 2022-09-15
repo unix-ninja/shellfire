@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import readline
@@ -470,6 +471,16 @@ def cmd_useragent(cmd):
   sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
   return
 
+def expand_payload(my_list, data):
+  ## if we have a dict, expand our marker tags `{}` recursively
+  if not isinstance(my_list, dict):
+    return
+  for k, v in my_list.items():
+      if isinstance(my_list[k], dict):
+        expand_payload(my_list[k], data)
+      else:
+        my_list[k] = v.replace('{}', data)
+  return
 
 def send_payload():
   ## execute our command to the remote target
@@ -491,19 +502,16 @@ def send_payload():
       query = cfg.url
 
     ## generate POST payloads
-    post_data = cfg.post_data.copy()
-    for k, v in post_data.items():
-      post_data[k] = v.replace('{}', cmd.strip())
+    post_data = copy.deepcopy(cfg.post_data)
+    expand_payload(post_data, cmd.strip())
 
     ## generate cookie payloads
-    cookie_data = cfg.cookies.copy()
-    for k, v in cookie_data.items():
-      cookie_data[k] = v.replace('{}', cmd.strip())
+    cookie_data = copy.deepcopy(cfg.cookies)
+    expand_payload(cookie_data, cmd.strip())
 
     ## generate headers payloads
-    header_data = cfg.headers.copy()
-    for k, v in header_data.items():
-      header_data[k] = v.replace('{}', cmd.strip())
+    header_data = copy.deepcopy(cfg.headers)
+    expand_payload(header_data, cmd.strip())
 
     ## log debug info
     if state.args.debug:
