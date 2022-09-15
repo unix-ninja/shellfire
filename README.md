@@ -15,9 +15,23 @@ useful as I have, so I decided to open source my tool.
 
 ## Installation  
 
-You can use the standard Python setuptools to install this package:
+There are a few ways to install this tool. Shellfire is available via PyPI, so you can use pip.
 
 ```
+$ pip install shellfire
+```
+
+From Kali Linux, you can even use apt.
+
+```
+$ sudo apt install shellfire
+```
+
+If you'd like to build from source, you can use the standard Python setuptools to install this package.
+
+```
+$ git clone https://github.com/unix-ninja/shellfire.git
+$ cd shellfire
 $ python setup.py install
 ```
 
