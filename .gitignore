@@ -5,3 +5,8 @@ __pycache__
 bin
 include
 lib
+pyvenv.cfg
+.flake8
+shellfire.egg-info
+dist
+.vscode
