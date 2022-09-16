@@ -10,3 +10,4 @@ pyvenv.cfg
 shellfire.egg-info
 dist
 .vscode
+Makefile
