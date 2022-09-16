@@ -124,7 +124,15 @@ def parse_to_dict(data):
   else:
     ## try to parse as url encoded data
     try:
-      return urllib.parse.parse_qs(data.strip())
+      d = urllib.parse.parse_qs(data.strip())
+      ## flatten lists if they are of size 1
+      ## this is especially necessary for cookies
+      for k,v in d.items():
+        print (len(v))
+        if len(v) == 1:
+          d[k] = v[0]
+      ## return our dict
+      return d
     except Exception as e:
       sys.stderr.write("[!] %s\n" % e)
   ## if we failed to pase, return an empty dict
