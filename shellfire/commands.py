@@ -128,7 +128,6 @@ def parse_to_dict(data):
       ## flatten lists if they are of size 1
       ## this is especially necessary for cookies
       for k,v in d.items():
-        print (len(v))
         if len(v) == 1:
           d[k] = v[0]
       ## return our dict
