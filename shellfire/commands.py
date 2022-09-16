@@ -646,7 +646,8 @@ command_list = {
     "description": "",
     "help_text": [
       ".cookies        - show current cookies to be sent with each request.\n",
-      ".cookies <json> - a json string representing cookies you wish to send.\n",
+      ".cookies <string> - a string representing cookies you wish to send.\n",
+      "                  strings can be json or url encoded.\n",
       "                  use '{}' to specify where command injection goes.\n",
     ],
   },
@@ -691,7 +692,8 @@ command_list = {
     "description": "",
     "help_text": [
       ".headers default - sets the headers back to the shellfire defaults.\n",
-      ".headers <json>  - upserts the headers in the JSON object to the header config.\n",
+      ".headers <string>  - upserts the headers from your string into the header config.\n",
+      "                   strings can be json or url encoded.\n",
       "                   use '{}' to specify where command injection goes.\n",
     ],
   },
@@ -762,7 +764,8 @@ command_list = {
     "func": cmd_post,
     "description": "",
     "help_text": [
-      ".post <json> - a json string representing post data you wish to send.\n",
+      ".post <string> - a string representing post data you wish to send.\n",
+      "               strings can be json or url encoded.\n",
       "               use '{}' to specify where command injection goes.\n",
     ]
   },
