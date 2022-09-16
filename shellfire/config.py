@@ -1,6 +1,7 @@
 import os
 import json
 import pkg_resources
+import requests
 from tokenize import Number
 from typing import List
 
@@ -75,3 +76,4 @@ class state():
   revshell_running = False
   userinput = None
   exec_cmd = True
+  requests = requests.Session()

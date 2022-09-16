@@ -528,6 +528,7 @@ def send_payload():
     ## generate cookie payloads
     cookie_data = copy.deepcopy(cfg.cookies)
     expand_payload(cookie_data, cmd.strip())
+    requests.utils.add_dict_to_cookiejar(state.requests.cookies, cookie_data)
 
     ## generate headers payloads
     header_data = copy.deepcopy(cfg.headers)
@@ -542,11 +543,11 @@ def send_payload():
       sys.stdout.write("[D] Headers %s\n" % json.dumps(header_data))
     try:
       if cfg.method == "post":
-        r = requests.post(
+        r = state.requests.post(
             query,
             data=post_data,
             verify=False,
-            cookies=cookie_data,
+            # cookies=cookie_data,
             headers=header_data,
             auth=cfg.auth)
       elif cfg.method == "form":
@@ -569,7 +570,7 @@ def send_payload():
             except Exception as e:
               sys.stdout.write("[!] Error: %s\n" % (e))
         ## post our form data
-        r = requests.post(
+        r = state.requests.post(
             query,
             data=post_data,
             files=files,
@@ -578,7 +579,7 @@ def send_payload():
             headers=header_data,
             auth=cfg.auth)
       else:
-        r = requests.get(
+        r = state.requests.get(
             query,
             verify=False,
             cookies=cookie_data,
