@@ -503,11 +503,11 @@ def expand_payload(my_list, data):
           my_list[k] = v.replace('{}', data)
   else:
     ## process as a list
-    for v in my_list:
+    for k, v in enumerate(my_list):
         if isinstance(v, dict) or isinstance(v, list):
           expand_payload(v, data)
         else:
-          v = v.replace('{}', data)
+          my_list[k] = v.replace('{}', data)
   return
 
 def send_payload():
