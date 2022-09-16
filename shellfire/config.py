@@ -55,6 +55,7 @@ class Configs():
     self.encode = None
     self.files = {}
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+    self.marker_idx = [1]
     self.http_port = 8888
 
   def dump(self):
