@@ -113,6 +113,24 @@ def rev_shell(addr, port):
   return
 
 
+def parse_to_dict(data):
+  if data[0] is "{":
+    ## try to parse as json encoded data
+    try:
+      return json.loads(data)
+    except Exception as e:
+      sys.stderr.write("[!] %s\n" % e)
+  else:
+    ## try to parse as url encoded data
+    import urllib.parse
+    try:
+      return urllib.parse.parse_qs(data.strip())
+    except Exception as e:
+      sys.stderr.write("[!] %s\n" % e)
+  ## if we failed to pase, return an empty dict
+  return {}
+
+
 def cmd_auth(cmd):
   ## configure HTTP Basic auth settings
   if len(cmd) > 1:
@@ -161,13 +179,11 @@ def cmd_cookies(cmd):
     sys.stdout.write("[*] Cookies: %s\n" % (json.dumps(cfg.cookies)))
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## parse our json data
-  try:
-    cfg.cookies = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse our data
+  cfg.cookies = parse_to_dict(data)
+  if cfg.cookies:
+    sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
   return
 
 
@@ -269,15 +285,12 @@ def cmd_headers(cmd):
     sys.stdout.write("[*] Set request headers back to default.\n")
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## custom header parsing next...
-  try:
-    cfg.headers = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  ## Sanity check
-  sys.stdout.write("[*] Request headers are now: \n")
-  sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse our data
+  cfg.headers = parse_to_dict(data)
+  if cfg.headers:
+    sys.stdout.write("[*] Request headers are now: \n")
+    sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
   return
 
 
@@ -415,13 +428,11 @@ def cmd_post(cmd):
     sys.stdout.write("[*] POST data: %s\n" % json.dumps(cfg.post_data))
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## parse our json data
-  try:
-    cfg.post_data = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse the data
+  cfg.post_data = parse_to_dict(data)
+  if cfg.post_data:
+    sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
   return
 
 
@@ -473,13 +484,22 @@ def cmd_useragent(cmd):
 
 def expand_payload(my_list, data):
   ## if we have a dict, expand our marker tags `{}` recursively
-  if not isinstance(my_list, dict):
+  if not isinstance(my_list, dict) and not isinstance(my_list, list):
     return
-  for k, v in my_list.items():
-      if isinstance(my_list[k], dict):
-        expand_payload(my_list[k], data)
-      else:
-        my_list[k] = v.replace('{}', data)
+  if isinstance(my_list, dict):
+    ## process as a dict
+    for k, v in my_list.items():
+        if isinstance(my_list[k], dict) or isinstance(my_list[k], list):
+          expand_payload(my_list[k], data)
+        else:
+          my_list[k] = v.replace('{}', data)
+  else:
+    ## process as a list
+    for v in my_list:
+        if isinstance(v, dict) or isinstance(v, list):
+          expand_payload(v, data)
+        else:
+          v = v.replace('{}', data)
   return
 
 def send_payload():
