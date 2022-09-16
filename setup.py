@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='shellfire',
-    version='0.9',
+    version='0.10',
     description=(
         'shellfire is an exploitation shell focusing on exploiting command '
         'injection vulnerabilities, eg., LFI, RFI, SSTI, etc.'

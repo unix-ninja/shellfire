@@ -1,6 +1,7 @@
 import os
 import json
 import pkg_resources
+import requests
 from tokenize import Number
 from typing import List
 
@@ -54,6 +55,7 @@ class Configs():
     self.encode = None
     self.files = {}
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
+    self.marker_idx = [1]
     self.http_port = 8888
 
   def dump(self):
@@ -75,3 +77,4 @@ class state():
   revshell_running = False
   userinput = None
   exec_cmd = True
+  requests = requests.Session()

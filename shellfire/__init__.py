@@ -41,6 +41,10 @@ parser.add_argument('-d',
 parser.add_argument('--generate',
                     dest='payload',
                     help='generate a payload to stdout. PAYLOAD can be "php" or "aspnet".')
+parser.add_argument('--version',
+                    dest='version',
+                    action='store_true',
+                    help='display version and exit.')
 state.args = parser.parse_args()
 
 ############################################################
@@ -48,6 +52,10 @@ state.args = parser.parse_args()
 
 
 def cli():
+  ## should we dump version?
+  if state.args.version:
+    sys.stderr.write("Shellfire v%s\n" % (cfg.version))
+    sys.exit(1)
   ## if we are generating a payload to stdout, do it now, then bail
   if state.args.payload:
     state.args.payload = state.args.payload.lower()
@@ -63,14 +71,28 @@ def cli():
     sys.exit(1)
 
   ## show our banner
-  sys.stdout.write(""" (
-)\\ )    )       (   (   (
-(()/( ( /(    (  )\\  )\\  )\\ )  (   (      (
-/(_)))\\())  ))\\((_)((_)(()/(  )\\  )(    ))\\
-(_)) ((_)\\  /((_)_   _   /(_))((_)(()\\  /((_)
-/ __|| |(_)(_)) | | | | (_) _| (_) ((_)(_))
-\\__ \\| ' \\ / -_)| | | |  |  _| | || '_|/ -_)
-|___/|_||_|\\___||_| |_|  |_|   |_||_|  \\___|
+  sys.stdout.write("""                  1@@`
+                 ,@@@@%:
+              '?K@@@@@@@h'
+            |UQ@@@@@@@@@@m`      '
+      ,   |Q@@@@@@@@@@@@@@>      *B,
+    ~4x  L@@@@@@@@@@@@@@@@y      :QQ=
+  ~d@@t ,Q@@@@@@@@@@@@@@@@@?     :Q@@y`
+ ;Q@@@D.r@@@@@@@QNOppd%Q@@@@3,` ,4@@@@z
+^Q@@@@@Kz@@@j+,         `,=yQ@@@@@@@@@@=
+U@@@@@@@@Qu,                `}Q@@@@@@@@X
+Q@@@@@@@}`                    .j@@@@@@@Q
+@@@@@@@L                        L@@@@@@@
+@@@@@@0-                        'g@@@@@@
+D@@@@@O`                        `D@@@@@D
+c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
+`3@@@@@Q;   @@@@@@.  ,@@@@@@   ;Q@@@@@3`
+ -q@@@@@Qr  \\@@@@/    \\@@@@/  ~Q@@@@@A-
+   LQ@@@@x        .@@.        >@@@@QL
+    ~d@@@Q\\'      i@@i      `=8@@@Q~
+      =O@@@@@l            ~Q@@@@O=`
+        ;{8@@g;  |    |  '4@@8{;
+           `^tPp$p%g0Rdkhm1^'
 """)
   sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
   sys.stdout.write("[*] Type '.help' to see available commands\n")
