@@ -8,6 +8,7 @@ import socket
 import sys
 import threading
 import time
+import urllib.parse
 from shellfire.config import cfg, state
 from shellfire.plugin_collection import plugins
 from shellfire.payloads import get_aspnet_payload, get_php_payload
@@ -122,7 +123,6 @@ def parse_to_dict(data):
       sys.stderr.write("[!] %s\n" % e)
   else:
     ## try to parse as url encoded data
-    import urllib.parse
     try:
       return urllib.parse.parse_qs(data.strip())
     except Exception as e:
