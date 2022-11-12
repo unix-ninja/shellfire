@@ -4,8 +4,17 @@ import pkg_resources
 import requests
 from tokenize import Number
 from typing import List
+from enum import Enum
 
+## define application modes
+class Mode(Enum):
+  config = 1
+  shell = 2
 
+## define our shell prompts
+prompt = {Mode.config: "config", Mode.shell: "shell"}
+
+## session configurable options defined here
 class Configs():
   auth: str
   auth_user: str
@@ -78,5 +87,7 @@ class state():
   http_running = False
   revshell_running = False
   userinput = None
+  input_offset = 0
   exec_cmd = True
   requests = requests.Session()
+  mode = Mode.config

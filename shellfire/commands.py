@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 import urllib.parse
-from shellfire.config import cfg, state
+from shellfire.config import cfg, state, Mode
 from shellfire.plugin_collection import plugins
 from shellfire.payloads import get_aspnet_payload, get_php_payload
 
@@ -83,7 +83,7 @@ def show_help(cmd=None):
   else:
     sys.stdout.write("Available commands:\n")
     for cmd_key in command_list:
-      sys.stdout.write("  .%s\n" % (cmd_key))
+      sys.stdout.write("  %s\n" % (cmd_key))
 
 
 def http_server(port):
@@ -259,10 +259,14 @@ def cmd_encode(cmd):
 
 
 def cmd_exit(cmd):
-  state.http_running = False
-  if os.path.isfile(cfg.history_file):
-    readline.write_history_file(cfg.history_file)
-  sys.exit(0)
+  ## exit one level from our current mode
+  if state.mode == Mode.config:
+    state.http_running = False
+    if os.path.isfile(cfg.history_file):
+      readline.write_history_file(cfg.history_file)
+    sys.exit(0)
+  elif state.mode == Mode.shell:
+    state.mode = Mode.config
 
 
 def cmd_files(cmd):
@@ -509,7 +513,7 @@ def cmd_referer(cmd):
   return
 
 
-def cmd_shell(cmd):
+def cmd_revshell(cmd):
   ## initiate a reverse shell via rce
   if len(cmd) != 3:
     sys.stderr.write("[!] Invalid parameters\n")
@@ -528,6 +532,12 @@ def cmd_shell(cmd):
   time.sleep(1)
 
   state.exec_cmd = True
+  return
+
+
+def cmd_shell(cmd):
+  if state.mode == Mode.config:
+    state.mode = Mode.shell
   return
 
 
@@ -686,24 +696,24 @@ command_list = {
     "func": cmd_auth,
     "description": "",
     "help_text": [
-      ".auth - show current HTTP Auth credentials.\n",
-      ".auth <username>:<password> - set the HTTP Auth credentials.\n",
+      "auth                       - show current HTTP Auth credentials.\n",
+      "auth <username>:<password> - set the HTTP Auth credentials.\n",
     ],
   },
   "config": {
     "func": cmd_config,
     "description": "",
     "help_text": [
-      ".config save [name] - save a named config.\n",
-      ".config load [name] - load a named config.\n",
+      "config save [name] - save a named config.\n",
+      "config load [name] - load a named config.\n",
     ],
   },
   "cookies": {
     "func": cmd_cookies,
     "description": "",
     "help_text": [
-      ".cookies        - show current cookies to be sent with each request.\n",
-      ".cookies <string> - a string representing cookies you wish to send.\n",
+      "cookies          - show current cookies to be sent with each request.\n",
+      "cookies <string> - a string representing cookies you wish to send.\n",
       "                  strings can be json or url encoded.\n",
       "                  use '{}' to specify where command injection goes.\n",
     ],
@@ -712,8 +722,8 @@ command_list = {
     "func": cmd_encode,
     "description": "",
     "help_text": [
-      ".encode          - show current encoding used before sending commands.\n",
-      ".encode <string> - encode commands with plugin <string> before sending.\n",
+      "encode          - show current encoding used before sending commands.\n",
+      "encode <string> - encode commands with plugin <string> before sending.\n",
       "      * you may pass multiple plugins separated with spaces or pipes.\n",
     ],
   },
@@ -721,17 +731,17 @@ command_list = {
     "func": cmd_exit,
     "description": "",
     "help_text": [
-      ".exit - exits this program.\n"
+      "exit - exits this program.\n"
     ],
   },
   "files": {
     "func": cmd_files,
     "description": "",
     "help_text": [
-      ".files - show files to be sent to target.\n",
-      ".files \"\" - unset files.\n",
-      ".files <field> @<file> - send contents of file as <field>.\n",
-      ".files <field> <plugin> - send return value of plugin as <field>.\n",
+      "files                  - show files to be sent to target.\n",
+      "files \"\"               - unset files.\n",
+      "files <field> @<file>  - send contents of file as <field>.\n",
+      "files <field> <plugin> - send return value of plugin as <field>.\n",
       "                          the plugin should return a tuple of values\n",
       "                          for the filename and contents.\n",
     ],
@@ -740,17 +750,17 @@ command_list = {
     "func": cmd_find,
     "description": "",
     "help_text": [
-      ".find setuid - search for setuid files.\n",
-      ".find setgid - search for setgid files.\n",
+      "find setuid - search for setuid files.\n",
+      "find setgid - search for setgid files.\n",
     ],
   },
   "fuzz": {
     "func": cmd_fuzz,
     "description": "",
     "help_text": [
-      ".fuzz - show source for fuzzing.\n",
-      ".fuzz start - start fuzzing.\n",
-      ".fuzz @<file> - use file as source for fuzzing.\n",
+      "fuzz         - show source for fuzzing.\n",
+      "fuzz start   - start fuzzing.\n",
+      "fuzz @<file> - use file as source for fuzzing.\n",
       "                type 'default' to use bult-in source.\n",
     ],
   },
@@ -758,8 +768,8 @@ command_list = {
     "func": cmd_headers,
     "description": "",
     "help_text": [
-      ".headers default - sets the headers back to the shellfire defaults.\n",
-      ".headers <string>  - upserts the headers from your string into the header config.\n",
+      "headers default   - sets the headers back to the shellfire defaults.\n",
+      "headers <string>  - upserts the headers from your string into the header config.\n",
       "                   strings can be json or url encoded.\n",
       "                   use '{}' to specify where command injection goes.\n",
     ],
@@ -768,38 +778,38 @@ command_list = {
     "func": cmd_help,
     "description": "",
     "help_text": [
-      ".help - prints all help topics.\n"
+      "help - prints all help topics.\n"
     ],
   },
   "history": {
     "func": cmd_history,
     "description": "",
     "help_text": [
-      ".history clear  - erase history.\n",
-      ".history nosave - do not write history file.\n",
-      ".history save   - write history file on exit.\n",
+      "history clear  - erase history.\n",
+      "history nosave - do not write history file.\n",
+      "history save   - write history file on exit.\n",
     ],
   },
   "http": {
     "func": cmd_http,
     "description": "",
     "help_text": [
-      ".http                - show status of HTTP server\n",
-      ".http payload [type] - set the payload to be used for RFI.\n",
+      "http                - show status of HTTP server\n",
+      "http payload [type] - set the payload to be used for RFI.\n",
       "                       supported payload types:\n",
       "                         aspnet\n",
       "                         php\n",
-      ".http start [port]   - start HTTP server.\n",
-      ".http stop           - stop HTTP server.\n",
+      "http start [port]   - start HTTP server.\n",
+      "http stop           - stop HTTP server.\n",
     ],
   },
   "marker": {
     "func": cmd_marker,
     "description": "",
     "help_text": [
-      ".marker              - show the current payload output marker.\n",
-      ".marker set <string> - set the payload output marker to string.\n",
-      ".marker out <number> - the output indices to display after splitting on\n",
+      "marker              - show the current payload output marker.\n",
+      "marker set <string> - set the payload output marker to string.\n",
+      "marker out <number> - the output indices to display after splitting on\n",
       "                       our marker.\n",
     ],
   },
@@ -807,31 +817,31 @@ command_list = {
     "func": cmd_method,
     "description": "",
     "help_text": [
-      ".method      - show current HTTP method.\n",
-      ".method get  - set HTTP method to GET.\n",
-      ".method post - set HTTP method to POST.\n",
-      ".method form - set HTTP method to POST using multipart form data.\n",
+      "method      - show current HTTP method.\n",
+      "method get  - set HTTP method to GET.\n",
+      "method post - set HTTP method to POST.\n",
+      "method form - set HTTP method to POST using multipart form data.\n",
     ],
   },
   "phpinfo": {
     "func": cmd_phpinfo,
     "description": "",
     "help_text": [
-      ".phpinfo - executes the '_show_phpinfo' command via the PHP payload.\n"
+      "phpinfo - executes the '_show_phpinfo' command via the PHP payload.\n"
     ],
   },
   "plugins": {
     "func": cmd_plugins,
     "description": "",
     "help_text": [
-      ".plugins - list all available plugins.\n"
+      "plugins - list all available plugins.\n"
     ],
   },
   "post": {
     "func": cmd_post,
     "description": "",
     "help_text": [
-      ".post <string> - a string representing post data you wish to send.\n",
+      "post <string> - a string representing post data you wish to send.\n",
       "               strings can be json or url encoded.\n",
       "               use '{}' to specify where command injection goes.\n",
     ]
@@ -840,22 +850,22 @@ command_list = {
     "func": cmd_referer,
     "description": "",
     "help_text": [
-      ".referer          - show the HTTP referer string.\n",
-      ".referer <string> - set the value for HTTP referer.\n",
+      "referer          - show the HTTP referer string.\n",
+      "referer <string> - set the value for HTTP referer.\n",
     ],
   },
   "shell": {
     "func": cmd_shell,
     "description": "",
     "help_text": [
-      ".shell <ip_address> <port> - initiate reverse shell to target.\n",
+      "shell <ip_address> <port> - initiate reverse shell to target.\n",
     ]
   },
   "url": {
     "func": cmd_url,
     "description": "",
     "help_text": [
-      ".url <string> - set the target URL to string.\n",
+      "url <string> - set the target URL to string.\n",
       "                use '{}' to specify where command injection goes.\n",
     ],
   },
@@ -863,15 +873,15 @@ command_list = {
     "func": cmd_useragent,
     "description": "",
     "help_text": [
-      ".useragent          - show the User-Agent string.\n",
-      ".useragent <string> - set the value for User-Agent.\n",
+      "useragent          - show the User-Agent string.\n",
+      "useragent <string> - set the value for User-Agent.\n",
     ],
   },
   "quit": {
     "func": cmd_exit,
     "description": "Alias of \".exit\"",
     "help_text": [
-      ".quit - exits this program.\n"
+      "quit - exits this program.\n"
     ],
   },
 }
