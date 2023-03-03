@@ -156,12 +156,9 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
 
     ## config mode
     if state.mode == Mode.config:
-    # if cmd[0][0] == '.':
-      # if cmd[0][1:] in command_list.keys():
       if cmd[0] in command_list.keys():
         state.exec_cmd = False
         try:
-          # command_list[cmd[0][1:]]['func'](cmd)
           command_list[cmd[0]]['func'](cmd)
         except Exception as e:
           sys.stdout.write("[!] %s\n" % (repr(e)))
@@ -170,7 +167,6 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
     ## shell mode
     elif state.mode == Mode.shell:
       if len(cmd)== 1 and cmd[0] == "exit":
-        # state.mode = Mode.config
         command_list[cmd[0]]['func'](cmd)
       else:
         send_payload()

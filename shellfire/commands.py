@@ -866,7 +866,7 @@ command_list = {
     "description": "",
     "help_text": [
       "shell - enter exploitation shell. commands entered here are processed and sent as\n",
-      "        payloads to your target."
+      "        payloads to your target.\n"
     ]
   },
   "url": {
