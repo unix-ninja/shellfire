@@ -714,8 +714,8 @@ command_list = {
     "help_text": [
       "cookies          - show current cookies to be sent with each request.\n",
       "cookies <string> - a string representing cookies you wish to send.\n",
-      "                  strings can be json or url encoded.\n",
-      "                  use '{}' to specify where command injection goes.\n",
+      "                   strings can be json or url encoded.\n",
+      "                   use '{}' to specify where command injection goes.\n",
     ],
   },
   "encode": {
@@ -742,8 +742,8 @@ command_list = {
       "files \"\"               - unset files.\n",
       "files <field> @<file>  - send contents of file as <field>.\n",
       "files <field> <plugin> - send return value of plugin as <field>.\n",
-      "                          the plugin should return a tuple of values\n",
-      "                          for the filename and contents.\n",
+      "                         the plugin should return a tuple of values\n",
+      "                         for the filename and contents.\n",
     ],
   },
   "find": {
@@ -761,7 +761,7 @@ command_list = {
       "fuzz         - show source for fuzzing.\n",
       "fuzz start   - start fuzzing.\n",
       "fuzz @<file> - use file as source for fuzzing.\n",
-      "                type 'default' to use bult-in source.\n",
+      "               type 'default' to use bult-in source.\n",
     ],
   },
   "headers": {
@@ -770,8 +770,8 @@ command_list = {
     "help_text": [
       "headers default   - sets the headers back to the shellfire defaults.\n",
       "headers <string>  - upserts the headers from your string into the header config.\n",
-      "                   strings can be json or url encoded.\n",
-      "                   use '{}' to specify where command injection goes.\n",
+      "                    strings can be json or url encoded.\n",
+      "                    use '{}' to specify where command injection goes.\n",
     ],
   },
   "help": {
@@ -796,9 +796,9 @@ command_list = {
     "help_text": [
       "http                - show status of HTTP server\n",
       "http payload [type] - set the payload to be used for RFI.\n",
-      "                       supported payload types:\n",
-      "                         aspnet\n",
-      "                         php\n",
+      "                      supported payload types:\n",
+      "                        aspnet\n",
+      "                        php\n",
       "http start [port]   - start HTTP server.\n",
       "http stop           - stop HTTP server.\n",
     ],
@@ -810,7 +810,7 @@ command_list = {
       "marker              - show the current payload output marker.\n",
       "marker set <string> - set the payload output marker to string.\n",
       "marker out <number> - the output indices to display after splitting on\n",
-      "                       our marker.\n",
+      "                      our marker.\n",
     ],
   },
   "method": {
@@ -842,8 +842,8 @@ command_list = {
     "description": "",
     "help_text": [
       "post <string> - a string representing post data you wish to send.\n",
-      "               strings can be json or url encoded.\n",
-      "               use '{}' to specify where command injection goes.\n",
+      "                strings can be json or url encoded.\n",
+      "                use '{}' to specify where command injection goes.\n",
     ]
   },
   "referer": {
@@ -854,11 +854,19 @@ command_list = {
       "referer <string> - set the value for HTTP referer.\n",
     ],
   },
+  "revshell": {
+    "func": cmd_revshell,
+    "description": "",
+    "help_text": [
+      "shell <ip_address> <port> - initiate reverse shell to target.\n",
+    ]
+  },
   "shell": {
     "func": cmd_shell,
     "description": "",
     "help_text": [
-      "shell <ip_address> <port> - initiate reverse shell to target.\n",
+      "shell - enter exploitation shell. commands entered here are processed and sent as\n",
+      "        payloads to your target."
     ]
   },
   "url": {
@@ -866,7 +874,7 @@ command_list = {
     "description": "",
     "help_text": [
       "url <string> - set the target URL to string.\n",
-      "                use '{}' to specify where command injection goes.\n",
+      "               use '{}' to specify where command injection goes.\n",
     ],
   },
   "useragent": {
