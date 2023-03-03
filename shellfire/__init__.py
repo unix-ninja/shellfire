@@ -108,7 +108,7 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
            `^tPp$p%g0Rdkhm1^'
 """)
   sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
-  sys.stdout.write("[*] Type '.help' to see available commands\n")
+  sys.stdout.write("[*] Type 'help' to see available commands\n")
   if state.args.debug is True:
     sys.stdout.write("[*] Debug mode enabled.\n")
 
