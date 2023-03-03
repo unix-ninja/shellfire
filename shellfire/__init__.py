@@ -8,10 +8,11 @@ import os
 import readline
 import requests
 import shlex
+import signal
 import sys
 import time
 
-from shellfire.config import cfg, state
+from shellfire.config import cfg, state, prompt, Mode
 from shellfire.commands import command_list, cmd_config, send_payload, payload_php, payload_aspnet
 
 
@@ -49,6 +50,18 @@ state.args = parser.parse_args()
 
 ############################################################
 ## Main App
+
+
+def draw_prompt():
+  return '(%s)> ' % prompt[state.mode]
+
+
+def sigint_handler(signum, frame):
+  state.userinput =""
+  _q = readline.get_line_buffer()
+  state.input_offset = len(_q)
+  sys.stderr.write("\n%s" % (draw_prompt()))
+  return
 
 
 def cli():
@@ -95,7 +108,7 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
            `^tPp$p%g0Rdkhm1^'
 """)
   sys.stdout.write("[*] ShellFire v" + cfg.version + "\n")
-  sys.stdout.write("[*] Type '.help' to see available commands\n")
+  sys.stdout.write("[*] Type 'help' to see available commands\n")
   if state.args.debug is True:
     sys.stdout.write("[*] Debug mode enabled.\n")
 
@@ -115,6 +128,8 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
   ## set initial payload for PHP
   payload_php()
 
+  ## register our sigint handler
+  signal.signal(signal.SIGINT, sigint_handler)
   ## main loop
   while True:
     while state.revshell_running:
@@ -126,25 +141,35 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
     state.exec_cmd = True
     ## prompt for input
     try:
-      state.userinput = input('>> ').strip()
+      state.userinput = input(draw_prompt()).strip()
+      if state.input_offset > 0:
+        state.userinput = state.userinput[state.input_offset:]
+        state.input_offset = 0
     except EOFError:
-      ## if we recieve EOF, gracefully exit
+      ## if we recieve EOF, run cmd_exit()
       sys.stdout.write("\n")
-      sys.exit(2)
+      command_list["exit"]['func']("exit")
     if not state.userinput:
       continue
     ## parse our input
     cmd = shlex.split(state.userinput)
 
-    if cmd[0][0] == '.':
-      if cmd[0][1:] in command_list.keys():
+    ## config mode
+    if state.mode == Mode.config:
+      if cmd[0] in command_list.keys():
         state.exec_cmd = False
         try:
-          command_list[cmd[0][1:]]['func'](cmd)
+          command_list[cmd[0]]['func'](cmd)
         except Exception as e:
           sys.stdout.write("[!] %s\n" % (repr(e)))
-
-    send_payload()
+      else:
+        sys.stdout.write("[!] Invalid command '%s'.\n" % (cmd[0]))
+    ## shell mode
+    elif state.mode == Mode.shell:
+      if len(cmd)== 1 and cmd[0] == "exit":
+        command_list[cmd[0]]['func'](cmd)
+      else:
+        send_payload()
 
 
 ## Main entrypoint - let's not pollute the global scope here.

@@ -4,8 +4,17 @@ import pkg_resources
 import requests
 from tokenize import Number
 from typing import List
+from enum import Enum
 
+## define application modes
+class Mode(Enum):
+  config = 1
+  shell = 2
 
+## define our shell prompts
+prompt = {Mode.config: "config", Mode.shell: "shell"}
+
+## session configurable options defined here
 class Configs():
   auth: str
   auth_user: str
@@ -14,6 +23,7 @@ class Configs():
   default_headers: object
   encode_chain: List[any]
   files: dict
+  fuzzfile: str
   headers: object
   history_file: str
   http_port: Number
@@ -54,6 +64,7 @@ class Configs():
     self.encode_chain = []
     self.encode = None
     self.files = {}
+    self.fuzzfile = "default"
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
     self.marker_idx = [1]
     self.http_port = 8888
@@ -76,5 +87,7 @@ class state():
   http_running = False
   revshell_running = False
   userinput = None
+  input_offset = 0
   exec_cmd = True
   requests = requests.Session()
+  mode = Mode.config
