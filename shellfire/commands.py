@@ -202,7 +202,7 @@ def cmd_config(cmd):
     if cmd[1] == "save":
       ## make sure our directory exists
       if not os.path.isdir(config_path):
-        os.mkdir(config_path)
+        os.makedirs(config_path)
       ## save our config to json
       with open(name, 'w') as my_config:
         my_config.write(cfg.dump())
@@ -439,6 +439,7 @@ def cmd_marker(cmd):
   ## this will determine boundaries to split and clean output
   if len(cmd) == 1:
     sys.stderr.write("[*] Payload marker: %s\n" % (cfg.marker))
+    sys.stderr.write("[*] Marker index: %d\n" % (cfg.marker_idx))
     return
   ## let's remove ".marker" from our cmd
   cmd.pop(0)
