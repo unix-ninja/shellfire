@@ -439,7 +439,7 @@ def cmd_marker(cmd):
   ## this will determine boundaries to split and clean output
   if len(cmd) == 1:
     sys.stderr.write("[*] Payload marker: %s\n" % (cfg.marker))
-    sys.stderr.write("[*] Marker index: %d\n" % (cfg.marker_idx))
+    sys.stderr.write("[*] Marker index: %s\n" % (' '.join(str(idx) for idx in cfg.marker_idx)))
     return
   ## let's remove ".marker" from our cmd
   cmd.pop(0)
