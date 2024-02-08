@@ -434,14 +434,17 @@ def cmd_http(cmd):
 
 
 def cmd_marker(cmd):
-  print(cmd)
   ## set the marker for our rce payloads
   ## this will determine boundaries to split and clean output
   if len(cmd) == 1:
     sys.stderr.write("[*] Payload marker: %s\n" % (cfg.marker))
-    sys.stderr.write("[*] Marker index: %s\n" % (' '.join(str(idx) for idx in cfg.marker_idx)))
+    if cfg.marker:
+      idx_str = ' '.join(str(idx) for idx in cfg.marker_idx)
+    else:
+      idx_str = 'disabled'
+    sys.stderr.write("[*] Marker indices: %s\n" % (idx_str))
     return
-  ## let's remove ".marker" from our cmd
+  ## let's remove "marker" from our cmd
   cmd.pop(0)
 
   ## assign our action and remove it from cmd
@@ -452,6 +455,7 @@ def cmd_marker(cmd):
   if action == "set":
     ## set the rest of the string as our marker
     cfg.marker = " ".join(cmd)
+    if not cfg.marker: cfg.marker = None
     sys.stdout.write("[*] Payload output marker set.\n")
   elif action == "out":
     cfg.marker_idx = [int(idx) for idx in cmd]
