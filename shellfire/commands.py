@@ -97,7 +97,7 @@ def http_server(port):
   sock.bind((addr, port))
   sock.listen(1)
   ## server loop
-  while http_running is True:
+  while state.http_running is True:
     try:
       if not conn:
         conn, addr = sock.accept()
@@ -154,7 +154,7 @@ def rev_shell(addr, port):
 
 
 def parse_to_dict(data):
-  if data[0] is "{":
+  if data[0] == "{":
     ## try to parse as json encoded data
     try:
       return json.loads(data)
@@ -393,16 +393,15 @@ def cmd_history(cmd):
 
 def cmd_http(cmd):
   ## control our local http server
-  global http_running
   if len(cmd) == 1:
-    if http_running is True:
+    if state.http_running is True:
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
       sys.stdout.write("[*] HTTP payload: %s\n" % cfg.payload_type)
     else:
       sys.stdout.write("[*] HTTP server is not running\n")
     return
   if cmd[1] == "start":
-    if http_running is False:
+    if state.http_running is False:
       if len(cmd) > 2:
         try:
           cfg.http_port = int(cmd[2])
@@ -411,13 +410,13 @@ def cmd_http(cmd):
           return
       s = threading.Thread(target=http_server, args=(cfg.http_port,))
       s.start()
-      http_running = True
+      state.http_running = True
       sys.stdout.write("[*] HTTP server listening on %s\n" % cfg.http_port)
     else:
       sys.stderr.write("[!] HTTP server already running\n")
   elif cmd[1] == "stop":
-    if http_running is True:
-      http_running = False
+    if state.http_running is True:
+      state.http_running = False
       time.sleep(1)
     else:
       sys.stderr.write("[!] HTTP server already stopped\n")

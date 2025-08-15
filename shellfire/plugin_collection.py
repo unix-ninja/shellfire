@@ -115,13 +115,15 @@ class PluginCollection(object):
       if pkg_path not in self.seen_paths:
         self.seen_paths.append(pkg_path)
 
-        ## Get all sub directory of the current package path directory
-        child_pkgs = [p for p in os.listdir(pkg_path)
-                      if os.path.isdir(os.path.join(pkg_path, p))]
+        ## Only proceed if pkg_path is a real directory
+        if os.path.isdir(pkg_path):
+          ## Get all sub directory of the current package path directory
+          child_pkgs = [p for p in os.listdir(pkg_path)
+                        if os.path.isdir(os.path.join(pkg_path, p))]
 
-        ## For each sub directory, apply the walk_package method recursively
-        for child_pkg in child_pkgs:
-          self.walk_package(package + '.' + child_pkg)
+          ## For each sub directory, apply the walk_package method recursively
+          for child_pkg in child_pkgs:
+            self.walk_package(package + '.' + child_pkg)
     return
 
 

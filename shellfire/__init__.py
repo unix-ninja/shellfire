@@ -125,6 +125,23 @@ c@@@@@Q;    /@@@@\    /@@@@\    ;Q@@@@@\\
     except Exception:
       pass
 
+  ## setup tab completion
+  try:
+    from shellfire.tab_completion import ShellfireCompleter
+    completer = ShellfireCompleter()
+    readline.set_completer(completer.complete)
+    
+    # Set up tab binding for macOS (libedit) vs GNU readline
+    if sys.platform == 'darwin':
+      # macOS uses libedit which has different binding syntax
+      readline.parse_and_bind('bind ^I rl_complete')
+    else:
+      # GNU readline
+      readline.parse_and_bind('tab: complete')
+  except Exception as e:
+    # Silently fail if tab completion setup fails
+    pass
+
   ## set initial payload for PHP
   payload_php()
 
