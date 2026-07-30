@@ -128,6 +128,8 @@ class ShellfireCompleter:
                     return self._complete_fuzz_subcommand('')
                 elif command == 'find':
                     return self._complete_find_subcommand('')
+                elif command == 'proxy':
+                    return self._complete_proxy_subcommand('')
                 elif command == 'help':
                     return self._complete_help_subcommand('')
                 else:
@@ -148,6 +150,8 @@ class ShellfireCompleter:
                 return self._complete_fuzz_subcommand(current_word)
             elif command == 'find':
                 return self._complete_find_subcommand(current_word)
+            elif command == 'proxy':
+                return self._complete_proxy_subcommand(current_word)
             elif command == 'help':
                 return self._complete_help_subcommand(current_word)
             elif command in ['load', 'save']:
@@ -193,6 +197,11 @@ class ShellfireCompleter:
         find_subcommands = ['setuid', 'setgid']
         return [cmd for cmd in find_subcommands if cmd.startswith(text)]
     
+    def _complete_proxy_subcommand(self, text: str) -> List[str]:
+        """Complete proxy subcommands."""
+        proxy_subcommands = ['start', 'stop', 'status', 'ca', 'list', 'show', 'use', 'clear']
+        return [cmd for cmd in proxy_subcommands if cmd.startswith(text)]
+
     def _complete_help_subcommand(self, text: str) -> List[str]:
         """Complete help subcommands (all available commands)."""
         # Use the same command list as main commands

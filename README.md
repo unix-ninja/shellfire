@@ -11,6 +11,7 @@ useful as I have, so I decided to open source my tool.
 - [X] Plugin system  
 - [X] PHP payload  
 - [X] ASP payload  
+- [X] Intercepting HTTP(S) proxy to capture requests and seed exploit config  
 
 
 ## Installation  
@@ -100,6 +101,53 @@ We can specify injection points in cookies too.
 ```
 (config)> cookies { "session_id" : "123456789", "vuln_param": "{}" }
 ```
+
+## Capturing requests with the proxy
+
+Rather than transcribing URLs, cookies, and POST bodies by hand, you can let
+shellfire observe a real browser session and seed your exploit config from a
+captured request.
+
+Start the intercepting proxy (default port 8080):
+
+```
+(config)> proxy start 8080
+[*] Proxy listening on 8080
+[*] Point your browser here and trust the CA: ~/.config/shellfire/ca/shellfire-ca.crt
+```
+
+Point your browser's HTTP/HTTPS proxy at `127.0.0.1:8080`. To capture HTTPS
+traffic, import the CA certificate shown above into your browser or OS trust
+store (you only need to do this once). You can reprint the path anytime with
+`proxy ca`.
+
+Now browse to your target and exercise the vulnerable request. Everything the
+browser sends is captured for the session:
+
+```
+(config)> proxy list
+  [0] GET https://example.com/view?file=welcome.php
+  [1] POST https://example.com/login
+```
+
+Inspect a captured request in full with `proxy show <index>`, then seed your
+exploit config from it:
+
+```
+(config)> proxy use 0
+[*] Seeded exploit config from captured request:
+[*]   URL:     https://example.com/view?file=welcome.php
+[*]   Method:  GET
+[*]   Headers: {"User-Agent": "...", "Referer": "..."}
+[*]   Cookies: {"session_id": "123456789"}
+[*] Tip: add '{}' to mark your injection point (e.g. `url`, `post`).
+```
+
+`proxy use` populates the URL, method, headers, cookies, and any POST/form body
+from the captured request. From there, add a `{}` injection marker to whichever
+parameter is vulnerable (see the RFI walkthrough above) and drop into `shell`
+mode to start exploiting. Use `proxy clear` to discard captures and
+`proxy stop` when you're done.
 
 Additional options, and information on how to use them, can be discovered by 
 using the `help` option in config mode.

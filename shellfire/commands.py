@@ -12,6 +12,7 @@ import urllib.parse
 from shellfire.config import cfg, state, Mode
 from shellfire.plugin_collection import plugins
 from shellfire.payloads import get_aspnet_payload, get_php_payload
+from shellfire import proxy
 
 
 ############################################################
@@ -262,6 +263,7 @@ def cmd_exit(cmd):
   ## exit one level from our current mode
   if state.mode == Mode.config:
     state.http_running = False
+    state.proxy_running = False
     if os.path.isfile(cfg.history_file):
       readline.write_history_file(cfg.history_file)
     sys.exit(0)
@@ -505,6 +507,146 @@ def cmd_post(cmd):
   cfg.post_data = parse_to_dict(data)
   if cfg.post_data:
     sys.stdout.write("[*] POST data set: %s\n" % json.dumps(cfg.post_data))
+  return
+
+
+def cmd_proxy(cmd):
+  ## control our intercepting proxy and use captured requests
+  if len(cmd) == 1 or cmd[1] == "status":
+    if state.proxy_running is True:
+      sys.stdout.write("[*] Proxy listening on %s\n" % cfg.proxy_port)
+    else:
+      sys.stdout.write("[*] Proxy is not running\n")
+    sys.stdout.write("[*] Captured requests: %d\n" % len(state.captured_requests))
+    return
+
+  action = cmd[1]
+
+  if action == "start":
+    if state.proxy_running is True:
+      sys.stderr.write("[!] Proxy already running\n")
+      return
+    if len(cmd) > 2:
+      try:
+        cfg.proxy_port = int(cmd[2])
+      except Exception:
+        sys.stderr.write("[!] Invalid port value: %s\n" % (cmd[2]))
+        return
+    ## make sure our CA exists before we start serving TLS
+    try:
+      ca_path = proxy.ensure_ca()
+    except Exception as e:
+      sys.stderr.write("[!] Unable to prepare proxy CA: %s\n" % e)
+      return
+    state.proxy_running = True
+    s = threading.Thread(target=proxy.proxy_server, args=(cfg.proxy_port,))
+    s.daemon = True
+    s.start()
+    sys.stdout.write("[*] Proxy listening on %s\n" % cfg.proxy_port)
+    sys.stdout.write("[*] Point your browser here and trust the CA: %s\n" % ca_path)
+
+  elif action == "stop":
+    if state.proxy_running is True:
+      state.proxy_running = False
+      time.sleep(1.1)
+    else:
+      sys.stderr.write("[!] Proxy already stopped\n")
+
+  elif action == "ca":
+    try:
+      ca_path = proxy.ensure_ca()
+      sys.stdout.write("[*] CA certificate: %s\n" % ca_path)
+      sys.stdout.write("[*] Import this into your browser/OS trust store to capture HTTPS.\n")
+    except Exception as e:
+      sys.stderr.write("[!] Unable to prepare proxy CA: %s\n" % e)
+
+  elif action == "clear":
+    state.captured_requests.clear()
+    sys.stdout.write("[*] Captured requests cleared.\n")
+
+  elif action == "list":
+    if not state.captured_requests:
+      sys.stdout.write("[*] No requests captured yet.\n")
+      return
+    for i, req in enumerate(state.captured_requests):
+      sys.stdout.write("  [%d] %s %s\n" % (i, req["method"], req["url"]))
+
+  elif action == "show":
+    if len(cmd) != 3:
+      sys.stderr.write("[!] Usage: proxy show <index>\n")
+      return
+    req = _get_captured(cmd[2])
+    if req is None:
+      return
+    sys.stdout.write("[*] %s %s\n" % (req["method"], req["url"]))
+    sys.stdout.write("[*] Headers:\n")
+    for k, v in req["headers"].items():
+      sys.stdout.write("      %s: %s\n" % (k, v))
+    if req["body"]:
+      sys.stdout.write("[*] Body:\n      %s\n" % req["body"])
+
+  elif action == "use":
+    if len(cmd) != 3:
+      sys.stderr.write("[!] Usage: proxy use <index>\n")
+      return
+    req = _get_captured(cmd[2])
+    if req is None:
+      return
+    _seed_from_capture(req)
+
+  else:
+    sys.stderr.write("[!] Unknown proxy action '%s'\n" % action)
+  return
+
+
+def _get_captured(idx):
+  ## resolve a capture index into a stored request, or complain
+  try:
+    i = int(idx)
+    return state.captured_requests[i]
+  except (ValueError, IndexError):
+    sys.stderr.write("[!] No captured request at index '%s'\n" % idx)
+    return None
+
+
+def _seed_from_capture(req):
+  ## seed the exploit config from a captured request
+  ## URL + method
+  cfg.url = req["url"]
+  if req["method"].upper() == "POST":
+    ## multipart bodies map to our "form" method, everything else to "post"
+    if "multipart/form-data" in req.get("content_type", "").lower():
+      cfg.method = "form"
+    else:
+      cfg.method = "post"
+  else:
+    cfg.method = "get"
+
+  ## headers, minus per-request values requests will set itself and the
+  ## cookie header (which we track separately)
+  skip = {"host", "content-length", "content-encoding", "cookie", "accept-encoding"}
+  cfg.headers = {k: v for k, v in req["headers"].items() if k.lower() not in skip}
+
+  ## cookies, parsed from the captured Cookie header
+  if req["cookie"]:
+    cfg.cookies = parse_to_dict(req["cookie"].replace("; ", "&"))
+  else:
+    cfg.cookies = {}
+
+  ## post/body data
+  if req["method"].upper() == "POST" and req["body"]:
+    cfg.post_data = parse_to_dict(req["body"])
+  else:
+    cfg.post_data = {}
+
+  sys.stdout.write("[*] Seeded exploit config from captured request:\n")
+  sys.stdout.write("[*]   URL:     %s\n" % cfg.url)
+  sys.stdout.write("[*]   Method:  %s\n" % cfg.method.upper())
+  sys.stdout.write("[*]   Headers: %s\n" % json.dumps(cfg.headers))
+  sys.stdout.write("[*]   Cookies: %s\n" % json.dumps(cfg.cookies))
+  if cfg.post_data:
+    sys.stdout.write("[*]   POST:    %s\n" % json.dumps(cfg.post_data))
+  sys.stdout.write("[*] Tip: add '{}' to mark your injection point (e.g. `url`, `post`).\n")
   return
 
 
@@ -849,6 +991,21 @@ command_list = {
       "                strings can be json or url encoded.\n",
       "                use '{}' to specify where command injection goes.\n",
     ]
+  },
+  "proxy": {
+    "func": cmd_proxy,
+    "description": "",
+    "help_text": [
+      "proxy                - show proxy status and capture count.\n",
+      "proxy start [port]   - start the intercepting proxy (default 8080).\n",
+      "proxy stop           - stop the proxy.\n",
+      "proxy ca             - show the CA cert to trust for HTTPS capture.\n",
+      "proxy list           - list captured requests.\n",
+      "proxy show <index>   - show a captured request in full.\n",
+      "proxy use <index>    - seed url/method/headers/cookies/post from a\n",
+      "                       captured request.\n",
+      "proxy clear          - discard all captured requests.\n",
+    ],
   },
   "referer": {
     "func": cmd_referer,

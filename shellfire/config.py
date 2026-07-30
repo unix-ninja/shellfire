@@ -33,6 +33,7 @@ class Configs():
   payload: str
   payload_type: str
   post_data: object
+  proxy_port: Number
   url: str
   version: str
 
@@ -68,6 +69,7 @@ class Configs():
     self.marker = "--9453901401ed3551bc94fcedde066e5fa5b81b7ff878c18c957655206fd538da--"
     self.marker_idx = [1]
     self.http_port = 8888
+    self.proxy_port = 8080
 
   def dump(self):
     return json.dumps(self.__dict__)
@@ -85,6 +87,8 @@ cfg = Configs()
 class state():
   args = None
   http_running = False
+  proxy_running = False
+  captured_requests = []
   revshell_running = False
   userinput = None
   input_offset = 0
