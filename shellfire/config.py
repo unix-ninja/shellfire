@@ -31,6 +31,7 @@ class Configs():
   marker_idx: List[int]
   method: str
   payload: str
+  timeout: Number
   payload_type: str
   post_data: object
   proxy_port: Number
@@ -70,6 +71,8 @@ class Configs():
     self.marker_idx = [1]
     self.http_port = 8888
     self.proxy_port = 8080
+    ## seconds to wait on the target before giving up on a request
+    self.timeout = 30
 
   def dump(self):
     return json.dumps(self.__dict__)
